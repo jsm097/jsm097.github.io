@@ -1,0 +1,968 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MLB 문화 지도</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
+<style>
+/* 레이아웃: 위 헤더 / 왼쪽 태평양 중심 지도 / 오른쪽 학습 패널 (좁은 화면에서는 아래로) */
+:root{
+  color-scheme:light;
+  --navy:#1d2b4f; --navy-2:#33456f;
+  --stitch:#d1373f;
+  --sea:#e3ecf1; --sea-2:#d3e1ea;
+  --land:#dcdccf; --land-edge:#b9baa9;
+  --target:#f1d9a6; --target-edge:#a8874a; --target-hover:#f5c25c; --target-on:#e9962f;
+  --usa:#cbd5e8;
+  --paper:#ffffff; --panel:#f7f8fa; --line:#e2e6ec;
+  --ink:#1d2433; --muted:#5f6878;
+  --good:#23945a; --bad:#d1373f; --warn:#e69a1c;
+  /* 기원별 색 */
+  --o-native:#a0582a; --o-europe:#3866ad; --o-africa:#c98414; --o-asia:#b8364a; --o-na:#3f7d55; --o-latam:#7c4bab;
+  --font-display:"Black Han Sans","Noto Sans KR",sans-serif;
+  --font-body:"Noto Sans KR","Apple SD Gothic Neo","Malgun Gothic",sans-serif;
+  --shadow:0 8px 24px rgba(29,43,79,.16);
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%}
+body{font-family:var(--font-body);color:var(--ink);background:var(--paper);overflow:hidden}
+button{font:inherit;color:inherit}
+button:focus-visible{outline:3px solid var(--stitch);outline-offset:2px}
+.app{display:flex;flex-direction:column;height:100vh;height:100dvh}
+
+/* 헤더 */
+header{display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding:10px 18px;background:var(--navy);color:#fff}
+.logo{display:flex;align-items:center;gap:10px;margin-right:auto}
+.logo svg{width:30px;height:30px;flex:none}
+.logo h1{font-family:var(--font-display);font-weight:400;font-size:22px;margin:0;letter-spacing:.5px}
+.logo small{display:block;font-size:12px;opacity:.75;font-weight:500}
+.tabs{display:flex;background:rgba(255,255,255,.12);border-radius:12px;padding:4px;gap:4px}
+.tabs button{border:none;background:transparent;color:#fff;padding:8px 16px;border-radius:9px;font-weight:700;cursor:pointer;opacity:.8}
+.tabs button.on{background:#fff;color:var(--navy);opacity:1}
+
+/* 본문 */
+main{flex:1;min-height:0;display:grid;grid-template-columns:minmax(0,1fr) 380px}
+.mapwrap{position:relative;min-width:0;min-height:0;background:radial-gradient(circle at 45% 45%,var(--sea),var(--sea-2));overflow:hidden}
+#map{position:absolute;inset:0;width:100%;height:100%;display:block}
+aside{background:var(--panel);border-left:1px solid var(--line);overflow:auto;min-width:0}
+
+/* 지도 */
+.bg{fill:var(--land);stroke:var(--land-edge);stroke-width:.35}
+.bg.usa{fill:var(--usa);stroke:#9aa8c4}
+.tg{fill:var(--target);stroke:var(--target-edge);stroke-width:.5;cursor:pointer;transition:fill .15s}
+.tgroup:hover .tg{fill:var(--target-hover)}
+.tgroup.on .tg{fill:var(--target-on)}
+.tgroup.ok .tg{fill:var(--good)!important}
+.tgroup.no .tg{fill:var(--bad)!important}
+.tgroup.miss .tg{fill:var(--warn)!important;animation:blink .45s 4}
+@keyframes blink{50%{opacity:.4}}
+.bgc{cursor:default}
+.game .bgc{cursor:pointer}
+.marker{fill:var(--stitch);fill-opacity:.82;stroke:#fff;stroke-width:1.2;cursor:pointer}
+.tgroup.on .marker{fill:var(--navy)}
+.mlabel{font:700 9px var(--font-body);fill:var(--navy);text-anchor:middle;pointer-events:none;paint-order:stroke;stroke:#fff;stroke-width:2.6px;stroke-linejoin:round}
+.mcount{font:500 7.5px var(--font-body);fill:var(--muted)}
+.game:not(.hints) .mlabel{display:none}
+.usalbl{font:700 10px var(--font-body);fill:var(--navy-2);text-anchor:middle;pointer-events:none;letter-spacing:1px}
+.inset-bg{fill:var(--sea);stroke:var(--navy-2);stroke-width:.8}
+.inset-title{font:700 8px var(--font-body);fill:var(--navy-2)}
+.cbox{fill:none;stroke:var(--navy-2);stroke-width:.7;stroke-dasharray:3 2}
+.leader{stroke:var(--navy-2);stroke-width:.5;stroke-dasharray:2 2}
+.route{fill:none;stroke-width:2;stroke-linecap:round}
+.route.spread{stroke:var(--navy);stroke-dasharray:5 4}
+.route.move{stroke:var(--stitch)}
+.route-lbl{font:700 8px var(--font-body);paint-order:stroke;stroke:#fff;stroke-width:2.6px}
+.city{fill:var(--navy);stroke:#fff;stroke-width:.8}
+.flashlbl{font:900 11px var(--font-body);text-anchor:middle;pointer-events:none;paint-order:stroke;stroke:#fff;stroke-width:3.4px;stroke-linejoin:round}
+.tip{position:absolute;pointer-events:none;background:var(--navy);color:#fff;font-size:13px;font-weight:700;padding:4px 9px;border-radius:7px;transform:translate(-50%,-140%);white-space:nowrap}
+.tip[hidden]{display:none}
+.legend{position:absolute;left:12px;bottom:12px;background:rgba(255,255,255,.92);border-radius:10px;padding:8px 10px;font-size:12px;display:flex;flex-direction:column;gap:4px;box-shadow:0 2px 8px rgba(0,0,0,.08)}
+.legend span{display:flex;align-items:center;gap:6px}
+.lg-dot{width:12px;height:12px;border-radius:50%;background:var(--stitch);opacity:.85;border:1.5px solid #fff}
+.lg-line{width:22px;height:0;border-top:2px dashed var(--navy)}
+.lg-line.solid{border-top:2px solid var(--stitch)}
+.game .legend{display:none}
+
+/* 패널 공통 */
+.pad{padding:18px 20px;display:flex;flex-direction:column;gap:14px}
+.eyebrow{font-size:12px;font-weight:700;letter-spacing:.06em;color:var(--stitch)}
+.pad h2{font-family:var(--font-display);font-weight:400;font-size:26px;margin:0;line-height:1.2;text-wrap:balance}
+.pad h3{font-size:15px;margin:0 0 6px}
+.pad p{margin:0;line-height:1.65;font-size:14.5px}
+.q{background:var(--navy);color:#fff;border-radius:12px;padding:12px 14px;font-weight:700;line-height:1.55;font-size:14.5px}
+.q b{color:#ffd27a}
+.clist{display:flex;flex-direction:column;gap:6px}
+.crow{display:grid;grid-template-columns:130px 1fr 58px;align-items:center;gap:8px;border:1px solid var(--line);background:#fff;border-radius:10px;padding:8px 10px;cursor:pointer;text-align:left}
+.crow:hover{border-color:var(--target-edge)}
+.crow .nm{font-weight:700;font-size:14px}
+.crow .bar{height:10px;border-radius:5px;background:var(--stitch);opacity:.85}
+.crow .num{font-size:12px;color:var(--muted);text-align:right;font-variant-numeric:tabular-nums}
+.crow.seen .nm::after{content:" ✓";color:var(--good)}
+.note{font-size:12px;color:var(--muted);line-height:1.55}
+.back{align-self:flex-start;border:none;background:transparent;color:var(--navy-2);font-weight:700;cursor:pointer;padding:0;font-size:14px}
+.section{background:#fff;border:1px solid var(--line);border-radius:12px;padding:12px 14px}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{border-radius:999px;padding:4px 10px;font-size:13px;background:#eef1f6;font-weight:500}
+.kv{display:grid;grid-template-columns:20px 1fr;gap:4px 6px;font-size:14px;line-height:1.6}
+.kv i{font-style:normal;font-weight:900;color:var(--stitch)}
+.recipe{border:1px solid var(--line);background:#fff;border-radius:12px;padding:12px 14px;display:flex;flex-direction:column;gap:8px}
+.mix{display:flex;flex-wrap:wrap;align-items:center;gap:5px}
+.ing{display:inline-flex;flex-direction:column;border-radius:9px;padding:4px 8px;color:#fff;font-size:12.5px;line-height:1.3;font-weight:500}
+.ing small{font-size:10px;opacity:.85;font-weight:700}
+.op{font-weight:900;color:var(--muted)}
+.res{font-family:var(--font-display);font-size:18px;color:var(--navy);padding:2px 0}
+.o-원주민{background:var(--o-native)} .o-유럽{background:var(--o-europe)} .o-아프리카{background:var(--o-africa)}
+.o-아시아{background:var(--o-asia)} .o-미국·캐나다{background:var(--o-na)} .o-중남미·카리브{background:var(--o-latam)}
+.origins{display:flex;flex-wrap:wrap;gap:6px}
+.origins span{font-size:11px;color:#fff;border-radius:6px;padding:2px 7px;font-weight:700}
+
+/* 게임 */
+#fall{position:absolute;inset:0;pointer-events:none}
+.card{position:absolute;left:0;top:0;width:230px;display:grid;grid-template-columns:40px 1fr;gap:8px;align-items:center;background:#fff;border-radius:12px;border:2px solid var(--navy);box-shadow:var(--shadow);padding:7px 10px;will-change:transform}
+.card .k{font-size:11px;font-weight:900;letter-spacing:.05em;color:#fff;background:var(--navy);border-radius:5px;padding:1px 6px;display:inline-block}
+.card .k.문화{background:var(--o-latam)} .card .k.역사{background:var(--o-europe)}
+.card .t{font-weight:900;font-size:17px;margin-top:2px;line-height:1.25}
+.card .h{font-size:12px;color:var(--muted);line-height:1.35;margin-top:2px}
+.card .ball{font-size:28px;text-align:center}
+.tgroup.help .tg{fill:var(--target-hover)}
+.tgroup.help .marker{animation:pulse 1s infinite;transform-box:fill-box;transform-origin:center}
+@keyframes pulse{50%{transform:scale(1.5);fill:var(--gold-help,#f5a623)}}
+.rgrid{display:grid;grid-template-columns:64px minmax(0,1fr);gap:12px;align-items:start}
+.ill{display:block;background:#fbf7ef;border-radius:12px}
+.flag{display:inline-block;vertical-align:middle;border-radius:3px;box-shadow:0 0 0 1px rgba(0,0,0,.12)}
+.ctitle{display:flex;align-items:center;gap:12px}
+.gallery{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:0}
+.gallery figure{margin:0;background:#fff;border:1px solid var(--line);border-radius:12px;padding:8px 6px;display:flex;flex-direction:column;align-items:center;gap:6px}
+.gallery .ill{width:100%;height:auto;max-width:84px}
+.gallery figcaption{font-size:12px;font-weight:700;text-align:center;line-height:1.3}
+.card.danger{border-color:var(--bad)}
+.card.pop{animation:pop .35s forwards}
+@keyframes pop{to{opacity:0;transform:var(--t) scale(1.3)}}
+.ground{position:absolute;left:0;right:0;bottom:0;height:5px;background:repeating-linear-gradient(90deg,var(--stitch) 0 12px,transparent 12px 20px);opacity:.6;pointer-events:none}
+.mapwrap:not(.game) .ground{display:none}
+.float{position:absolute;font-family:var(--font-display);font-size:22px;pointer-events:none;animation:up .9s ease-out forwards;transform:translate(-50%,-50%)}
+@keyframes up{to{opacity:0;transform:translate(-50%,-160%)}}
+.hud{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+.hud div{background:#fff;border:1px solid var(--line);border-radius:10px;padding:8px 4px;text-align:center}
+.hud b{display:block;font-size:20px;font-variant-numeric:tabular-nums}
+.hud span{font-size:11px;color:var(--muted)}
+.progress{height:8px;border-radius:4px;background:var(--line);overflow:hidden}
+.progress i{display:block;height:100%;background:var(--navy);width:0;transition:width .3s}
+.log{display:flex;flex-direction:column;gap:8px}
+.log .recipe{animation:slidein .3s}
+@keyframes slidein{from{opacity:0;transform:translateY(-6px)}}
+.log .lg-head{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+.log .who{font-weight:900}
+.log .where{font-size:12px;color:var(--good);font-weight:700}
+.big{border:none;background:var(--stitch);color:#fff;font-family:var(--font-display);font-size:20px;padding:11px 26px;border-radius:12px;cursor:pointer;box-shadow:0 4px 0 #9e2229}
+.big:active{transform:translateY(2px);box-shadow:0 2px 0 #9e2229}
+.big.ghost{background:#fff;color:var(--navy);box-shadow:0 4px 0 var(--line);border:1px solid var(--line)}
+.seg{display:flex;background:#e9edf3;border-radius:10px;padding:4px;gap:4px}
+.seg button{flex:1;border:none;background:transparent;padding:8px;border-radius:8px;font-weight:700;cursor:pointer;color:var(--muted)}
+.seg button.on{background:#fff;color:var(--navy);box-shadow:0 1px 3px rgba(0,0,0,.12)}
+.chk{display:flex;gap:8px;align-items:center;font-size:14px;cursor:pointer}
+.chk input{width:18px;height:18px;accent-color:var(--stitch)}
+.row{display:flex;gap:8px;flex-wrap:wrap}
+.overlay{position:absolute;inset:0;display:grid;place-items:center;background:rgba(227,236,241,.75);backdrop-filter:blur(2px);padding:16px}
+.overlay[hidden]{display:none}
+.ovcard{background:#fff;border-radius:16px;box-shadow:var(--shadow);padding:22px 24px;max-width:420px;width:100%;text-align:center;display:flex;flex-direction:column;gap:12px}
+.ovcard h2{font-family:var(--font-display);font-weight:400;font-size:28px;margin:0;color:var(--navy)}
+.ovcard p{margin:0;color:var(--muted);line-height:1.6;font-size:14px}
+.how{text-align:left;background:var(--panel);border-radius:10px;padding:10px 12px;font-size:13.5px;line-height:1.75}
+.res-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+.res-grid div{background:var(--panel);border-radius:10px;padding:8px}
+.res-grid b{display:block;font-size:22px}
+.res-grid span{font-size:11px;color:var(--muted)}
+
+/* 수업 안내 · 입장 화면 */
+.intro{position:fixed;inset:0;z-index:50;overflow:auto;background:
+  radial-gradient(circle at 85% 10%,rgba(209,55,63,.18),transparent 40%),var(--navy);color:#fff;padding:24px 16px}
+.intro[hidden]{display:none}
+.intro-in{max-width:880px;margin:0 auto;display:flex;flex-direction:column;gap:16px}
+.intro-head{display:flex;align-items:center;gap:14px}
+.intro-eyebrow{font-size:13px;font-weight:700;color:#ffd27a;letter-spacing:.04em}
+.intro h1{font-family:var(--font-display);font-weight:400;font-size:40px;margin:2px 0 0;line-height:1.1}
+.intro-lead{margin:0;font-size:16px;line-height:1.7;max-width:62ch;opacity:.95}
+.intro-lead b{color:#ffd27a}
+.intro-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.ib{background:#fff;color:var(--ink);border-radius:14px;padding:14px 16px;min-width:0}
+.ib.wide{grid-column:1/-1}
+.ib h3{margin:0 0 6px;font-size:13px;color:var(--stitch);letter-spacing:.04em}
+.ib p{margin:0;line-height:1.65;font-size:14.5px}
+.concepts{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.concepts div{background:var(--panel);border-radius:10px;padding:10px 12px;display:flex;flex-direction:column;gap:4px}
+.concepts b{font-size:15px;color:var(--navy)}
+.concepts span{font-size:13px;color:var(--muted);line-height:1.5}
+.steps{margin:0;padding-left:22px;display:flex;flex-direction:column;gap:6px;font-size:14.5px;line-height:1.6}
+.steps b{color:var(--navy);margin-right:6px}
+.entry{background:#fff;color:var(--ink);border-radius:14px;padding:14px 16px;border:3px solid #ffd27a}
+.entry h3{margin:0 0 10px;font-size:16px}
+.entry-row{display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap}
+.entry label{display:flex;flex-direction:column;gap:4px;font-size:12px;font-weight:700;color:var(--muted)}
+.entry label.grow{flex:1;min-width:160px}
+.entry input,.entry select{font:inherit;font-size:16px;padding:10px 12px;border:1.5px solid var(--line);border-radius:10px;background:#fff;color:var(--ink)}
+.entry input:focus,.entry select:focus{outline:none;border-color:var(--stitch)}
+.big:disabled{opacity:.45;cursor:not-allowed;box-shadow:none}
+.entry-msg{margin:8px 0 0;font-size:12.5px;color:var(--muted)}
+.who-chip{display:flex;align-items:center;gap:8px;background:rgba(255,255,255,.12);border-radius:10px;padding:5px 6px 5px 12px;font-size:14px;font-weight:700}
+.who-chip[hidden]{display:none}
+.who-chip button{border:none;background:#fff;color:var(--navy);border-radius:7px;padding:5px 9px;font-size:12px;font-weight:700;cursor:pointer}
+.end-who{font-size:13px;font-weight:700;color:var(--stitch)}
+.board{text-align:left;font-size:13px}
+.board h4{margin:4px 0 6px;font-size:13px;color:var(--muted)}
+.board ol{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:2px}
+.board li{font-variant-numeric:tabular-nums}
+.board li.me{font-weight:900;color:var(--stitch)}
+@media (max-width:640px){
+  .intro-grid,.concepts{grid-template-columns:1fr}
+  .intro h1{font-size:30px}
+}
+@media (max-width:860px){
+  body{overflow:auto}
+  .app{height:auto;min-height:100%}
+  main{grid-template-columns:1fr}
+  .mapwrap{height:62vh;min-height:340px}
+  aside{border-left:none;border-top:1px solid var(--line)}
+  .logo h1{font-size:18px}
+  header{padding:8px 16px}
+  .card{width:190px;padding:5px 8px;grid-template-columns:32px 1fr}
+  .card .ill{width:32px;height:32px}
+  .card .t{font-size:14px}
+  .card .h{font-size:11px}
+  .legend{display:none}
+}
+@media (prefers-reduced-motion:reduce){*{animation-duration:.01s!important;transition:none!important}}
+</style>
+</head>
+<body>
+<div class="intro" id="intro">
+  <div class="intro-in">
+    <div class="intro-head">
+      <svg viewBox="0 0 32 32" width="44" height="44" aria-hidden="true"><circle cx="16" cy="16" r="14" fill="#fff"/><path d="M8 6c4 4 4 16 0 20M24 6c-4 4-4 16 0 20" fill="none" stroke="#d1373f" stroke-width="1.6" stroke-dasharray="2 1.6"/></svg>
+      <div><div class="intro-eyebrow">중학교 사회 1 · 아메리카 단원 · 1차시 (45분)</div><h1>MLB 문화 지도</h1></div>
+    </div>
+    <p class="intro-lead">메이저리그(MLB) 선수의 약 4분의 1은 미국 밖에서 태어났어요. 오늘은 선수들의 출신 나라를 따라가며, <b>사람들이 이동할 때 문화가 어떻게 섞이는지</b> 알아봐요.</p>
+    <div class="intro-grid">
+      <section class="ib">
+        <h3>성취기준</h3>
+        <p><b>[9사(지리)05-02]</b> 다양한 민족(인종)으로 구성된 아메리카의 인구 특징을 살펴보고, 사례를 들어 아메리카의 문화 혼종성을 설명한다.</p>
+      </section>
+      <section class="ib">
+        <h3>학습 목표</h3>
+        <p>아메리카의 구체적인 사례를 통해 서로 다른 문화가 만나 새로운 특징을 만들어 내는 <b>문화 혼종성</b>의 과정을 설명할 수 있다.</p>
+      </section>
+      <section class="ib wide">
+        <h3>핵심 개념</h3>
+        <div class="concepts">
+          <div><b>문화 혼종성</b><span>서로 다른 문화가 만나 섞이면서 새로운 문화가 생겨나는 것</span></div>
+          <div><b>인구 이동</b><span>식민 지배, 강제 이주, 일자리, 꿈을 찾아 사람들이 옮겨 가는 것</span></div>
+          <div><b>공간적 상호작용</b><span>서로 다른 장소의 사람·물건·생각이 오가며 영향을 주고받는 것</span></div>
+        </div>
+      </section>
+      <section class="ib wide">
+        <h3>오늘의 활동</h3>
+        <ol class="steps">
+          <li><b>탐험하기</b> 지도에서 나라를 눌러 야구가 전해진 길, 사람들의 이동, 문화 혼종 레시피를 살펴봐요.</li>
+          <li><b>게임하기</b> 떨어지는 문화·역사 카드를 보고 그 나라를 지도에서 찾아요. 맞힐수록 레시피가 쌓여요.</li>
+          <li><b>모둠 공유</b> 모은 레시피와 모둠 질문을 바탕으로, 문화 혼종성이 우리 생활에 어떻게 나타나는지 1분 동안 발표해요.</li>
+        </ol>
+      </section>
+    </div>
+    <form class="entry" id="entryForm" autocomplete="off">
+      <h3>입장하기</h3>
+      <div class="entry-row">
+        <label>모둠
+          <select id="teamSel"><option value="">선택</option><option>1모둠</option><option>2모둠</option><option>3모둠</option><option>4모둠</option><option>5모둠</option><option>6모둠</option><option>7모둠</option><option>8모둠</option></select>
+        </label>
+        <label class="grow">이름
+          <input id="nameIn" type="text" maxlength="12" placeholder="이름을 적어 주세요">
+        </label>
+        <button class="big" id="enterBtn" type="submit" disabled>시작하기</button>
+      </div>
+      <p class="entry-msg" id="entryMsg">이름을 적으면 시작할 수 있어요. 게임 기록에 이름이 함께 남아요.</p>
+    </form>
+  </div>
+</div>
+<div class="app">
+  <header>
+    <div class="logo">
+      <svg viewBox="0 0 32 32" aria-hidden="true"><circle cx="16" cy="16" r="14" fill="#fff"/><path d="M8 6c4 4 4 16 0 20M24 6c-4 4-4 16 0 20" fill="none" stroke="#d1373f" stroke-width="1.6" stroke-dasharray="2 1.6"/></svg>
+      <div><h1>MLB 문화 지도</h1><small>야구 선수를 따라가 보는 아메리카의 문화 혼종성</small></div>
+    </div>
+    <div class="who-chip" id="whoChip" hidden><span id="whoText"></span><button id="guideBtn" title="수업 안내 다시 보기">수업 안내</button></div>
+    <nav class="tabs" aria-label="모드">
+      <button id="tabExplore" class="on">탐험하기</button>
+      <button id="tabGame">게임하기</button>
+    </nav>
+  </header>
+  <main>
+    <div class="mapwrap" id="mapwrap">
+      <svg id="map" viewBox="0 0 700 483" preserveAspectRatio="xMidYMid meet" aria-label="태평양 중심 세계 지도"></svg>
+      <div id="fall"></div>
+      <div class="ground"></div>
+      <div class="tip" id="tip" hidden></div>
+      <div class="legend">
+        <span><i class="lg-dot"></i>MLB 선수 출신 국가 (원 크기 = 선수 수)</span>
+        <span><i class="lg-line"></i>야구가 전해진 길</span>
+        <span><i class="lg-line solid"></i>선수·사람들이 이동한 길</span>
+      </div>
+      <div class="overlay" id="startOv" hidden>
+        <div class="ovcard">
+          <h2>어느 나라에서 왔을까?</h2>
+          <p>문화·역사 카드가 위에서 천천히 떨어져요. 그림과 힌트를 보고 나라를 맞혀 보세요.</p>
+          <div class="how">
+            ① 카드를 읽고 <b>그 카드와 관련된 나라</b>를 지도에서 클릭하세요.<br>
+            ② 카리브해의 작은 나라는 <b>확대 지도</b>에서 눌러도 돼요.<br>
+            ③ 맞히면 오른쪽에 <b>문화 혼종 레시피</b>가 쌓여요.<br>
+            ④ 카드가 바닥 가까이 오면 정답 나라가 <b>깜빡이며 도와줘요</b>(쉬움·보통). 16장을 버티면 끝!
+          </div>
+          <div class="seg" id="diffSeg"><button data-v="easy" class="on">쉬움</button><button data-v="normal">보통</button><button data-v="hard">어려움</button></div>
+          <label class="chk"><input type="checkbox" id="hintChk" checked> 지도에 나라 이름 보이기</label>
+          <div><button class="big" id="startBtn">경기 시작</button></div>
+        </div>
+      </div>
+      <div class="overlay" id="endOv" hidden>
+        <div class="ovcard">
+          <div class="end-who" id="endWho"></div>
+          <h2 id="endTitle">경기 종료!</h2>
+          <div class="res-grid">
+            <div><b id="rScore">0</b><span>점수</span></div>
+            <div><b id="rCorrect">0</b><span>맞힌 카드</span></div>
+            <div><b id="rAcc">0%</b><span>정확도</span></div>
+          </div>
+          <p id="rMsg"></p>
+          <div class="board" id="board"></div>
+          <div class="row" style="justify-content:center"><button class="big" id="againBtn">다시 하기</button><button class="big ghost" id="toExplore">탐험하기로</button></div>
+        </div>
+      </div>
+    </div>
+    <aside id="panel"></aside>
+  </main>
+</div>
+
+<script>
+/* ───────────── 지도 데이터 (Natural Earth 1:50m, 단순화) ───────────── */
+const GEO = {"world":{"VNM":"M24.3,204.7L23.8,204.2L22.4,204.4L20.5,203.0L19.9,201.6L20.6,200.3L18.7,199.6L17.8,199.8L16.1,198.3L14.8,199.0L14.6,199.8L13.3,200.5L12.3,200.4L11.9,201.1L11.0,200.3L10.2,200.4L9.2,201.4L7.7,200.4L6.5,201.7L9.0,204.5L8.7,205.6L9.4,206.9L11.1,207.5L12.3,206.7L13.9,207.7L14.1,208.7L15.0,209.9L13.9,211.4L12.3,211.1L11.9,212.3L14.4,214.2L15.6,214.6L15.5,215.4L16.6,216.5L17.3,217.9L19.8,220.7L20.4,222.4L22.5,223.9L21.9,224.9L23.3,226.6L22.8,227.6L22.9,228.5L22.3,230.5L23.2,233.0L22.8,234.4L22.9,236.7L21.8,237.0L21.1,237.7L19.5,238.2L19.3,239.1L18.3,238.8L17.8,239.3L17.8,240.5L18.8,241.5L18.6,242.2L17.5,241.5L16.4,241.7L14.8,243.1L13.5,243.6L14.2,244.4L15.3,244.8L14.8,246.4L14.7,249.2L14.9,250.0L16.2,249.2L16.7,248.2L20.0,246.3L20.7,244.6L20.7,243.5L22.1,243.6L25.2,241.7L26.9,240.4L28.0,239.0L28.1,235.7L28.7,234.6L28.2,233.5L28.3,231.5L27.6,228.5L26.9,226.2L26.4,225.8L24.5,222.8L21.9,220.8L19.7,218.0L19.8,217.2L17.9,215.2L17.1,213.6L17.6,212.5L18.2,210.2L19.9,209.0L20.6,207.4L20.3,206.6L22.4,206.3L22.6,205.5Z","VUT":"M203.3,331.9L202.6,332.0L202.9,333.9L203.5,334.7L204.6,334.2L204.4,333.0L203.4,333.1ZM205.3,336.3L205.4,337.9L206.6,337.6Z","TLS":"M76.3,313.3L77.4,312.5L80.3,311.4L82.0,310.5L83.1,309.5L82.1,309.1L81.1,309.6L78.6,309.7L76.7,310.3L75.9,311.3ZM73.2,312.7L73.9,313.0L74.4,312.2Z","THA":"M0.4,208.9L-0.3,208.5L-2.0,209.7L-3.0,209.9L-3.3,210.8L-5.4,211.1L-6.6,211.9L-7.0,213.7L-6.9,214.8L-7.7,215.3L-6.9,216.9L-6.7,218.1L-4.8,220.6L-4.0,222.9L-4.3,223.8L-4.4,226.1L-5.5,226.8L-5.3,228.2L-4.4,229.7L-3.3,230.8L-2.6,232.0L-2.4,235.4L-1.8,236.1L-1.2,238.8L-2.5,241.1L-3.8,242.7L-4.0,244.3L-5.0,247.5L-5.4,250.5L-4.3,250.8L-2.9,252.4L-0.9,255.1L-0.9,255.9L0.4,257.5L1.1,257.1L2.4,257.5L3.2,258.2L3.3,259.1L3.8,259.7L4.8,259.3L5.7,259.6L6.4,258.2L5.5,257.4L4.6,256.0L3.1,256.0L1.8,254.9L1.4,254.0L0.9,251.1L-0.1,249.7L-0.3,248.1L-0.9,247.4L-1.9,247.8L-2.6,245.9L-2.5,243.9L-1.6,241.9L-1.1,239.9L-0.0,237.4L-0.1,235.6L0.3,234.3L0.1,233.3L0.7,232.8L2.0,232.7L2.9,233.0L2.6,235.5L4.4,235.8L5.2,235.6L6.2,236.1L7.7,237.6L8.4,238.0L8.9,239.0L8.3,237.7L8.4,236.5L7.6,235.7L7.1,232.6L8.3,231.6L8.9,230.5L9.7,229.8L14.6,229.5L15.8,229.8L16.7,229.1L16.8,226.2L17.1,225.0L16.5,224.0L15.4,223.4L14.5,221.7L14.7,219.5L13.5,218.0L12.0,215.9L10.3,215.5L9.3,216.9L8.3,217.4L6.4,216.3L3.4,218.8L2.8,218.5L3.4,216.9L3.2,215.6L3.9,213.6L3.5,211.5L1.9,211.8L1.2,210.8L1.6,209.7L1.0,208.6Z","TWN":"M64.0,200.8L64.9,199.6L65.4,198.0L65.9,195.5L66.8,192.6L65.7,191.5L64.1,192.4L62.8,194.3L61.4,197.0L61.1,199.0L61.9,201.1L62.7,201.7L63.0,202.9Z","KOR":"M81.1,147.8L81.5,149.8L79.8,151.0L80.8,152.3L80.8,153.4L81.4,154.8L80.1,157.0L80.7,159.8L83.4,158.4L84.4,157.7L86.6,158.0L86.8,157.2L88.9,156.9L90.0,154.2L89.5,153.8L89.7,151.4L89.3,149.6L87.1,146.4L86.4,144.8L85.4,145.9L82.7,146.0ZM80.2,163.7L81.8,163.3L81.3,162.6L80.2,162.9Z","SLB":"M175.9,308.8L174.9,307.9L174.6,309.0L175.4,309.6ZM181.9,312.4L181.5,313.4L182.2,314.3L184.7,314.8L184.6,313.6L183.8,313.0L182.6,313.0ZM182.3,309.9L182.2,309.2L181.0,308.1L180.0,307.7L178.8,306.6L178.4,307.2L179.5,308.1ZM175.1,305.7L174.0,304.9L173.7,304.1L172.7,304.2L173.9,305.6ZM185.0,309.1L184.5,309.3L185.3,312.1L186.5,312.6L185.7,310.1ZM187.9,316.4L187.4,317.0L189.2,317.9L189.1,316.6Z","SGP":"M12.1,275.3L11.6,274.9L11.1,275.3L11.6,275.6Z","RUS":"M93.5,132.0L94.9,130.8L96.6,128.8L98.4,129.9L99.6,129.9L101.0,130.5L102.6,130.1L107.0,127.6L108.0,126.6L109.2,124.7L110.0,124.3L112.1,121.9L114.8,119.6L116.7,117.1L117.5,115.3L118.8,114.2L119.9,112.4L122.3,110.2L123.4,106.4L123.3,103.1L123.9,100.7L124.6,99.3L126.0,98.3L126.3,97.4L125.4,96.7L126.1,93.9L124.9,92.8L122.9,91.7L120.9,90.0L119.7,90.3L117.8,89.9L117.7,91.9L116.6,92.4L113.7,92.6L113.2,91.6L111.7,91.2L112.1,88.8L109.2,89.0L107.4,88.4L107.4,87.7L110.2,86.3L114.8,83.5L117.7,80.6L120.1,79.3L121.8,78.1L123.2,77.7L123.9,76.3L127.1,74.4L128.0,73.5L131.5,72.2L138.7,72.1L139.9,72.8L141.4,72.0L144.7,72.6L145.8,72.1L149.8,71.8L151.2,70.8L153.7,71.4L156.8,71.7L158.3,72.9L155.7,73.2L156.3,73.9L161.0,73.7L162.5,72.8L164.5,73.2L168.0,72.2L166.2,71.6L165.3,70.6L167.4,68.7L170.1,67.3L172.4,65.6L172.6,64.8L175.0,63.7L176.8,63.9L179.9,63.3L181.3,64.0L183.7,63.7L182.3,65.5L185.0,67.4L190.0,64.2L191.9,63.7L192.8,61.1L195.7,60.5L196.7,61.4L195.5,62.0L194.9,65.3L194.0,66.8L191.7,67.3L188.8,68.5L188.0,69.5L185.3,71.3L182.2,73.0L181.5,74.2L179.8,75.5L177.2,76.9L175.6,76.9L174.9,77.7L172.9,77.9L173.5,78.9L172.7,80.0L170.5,81.5L169.7,83.8L169.1,86.3L169.4,88.0L170.2,91.2L170.8,94.5L171.6,96.2L172.0,99.8L172.8,101.6L176.9,98.7L178.0,97.0L178.5,95.0L182.4,93.2L182.2,91.8L182.9,90.3L185.0,89.1L188.0,89.1L189.1,88.4L188.0,86.2L189.0,83.7L190.4,83.1L192.0,83.9L192.9,83.2L192.6,81.6L191.2,81.2L191.2,79.2L192.5,78.1L191.0,77.2L190.2,77.8L188.7,76.7L189.2,75.4L191.8,73.4L192.7,72.5L193.1,70.6L194.2,69.9L198.2,69.6L202.0,68.3L201.4,70.1L203.9,68.9L207.5,68.0L210.8,67.9L213.1,69.8L214.2,70.1L215.0,68.5L220.4,66.3L221.9,64.9L224.2,64.0L226.9,63.6L229.2,62.6L235.5,60.9L237.6,61.1L240.9,61.9L242.3,60.6L241.6,58.8L239.7,57.7L239.5,56.1L235.8,54.5L235.9,53.4L239.1,53.9L241.9,53.1L243.6,52.3L243.6,38.6L240.1,37.1L234.2,36.2L231.8,35.5L223.1,35.6L220.9,35.1L214.6,34.6L214.9,36.5L216.2,38.3L214.8,39.1L212.0,39.2L211.0,38.2L208.0,37.6L205.9,35.9L203.5,36.8L196.4,36.4L195.4,36.0L189.9,36.2L187.4,37.2L185.5,36.4L182.2,35.8L182.7,33.9L180.7,32.2L176.7,31.4L170.2,31.2L163.8,31.9L159.9,32.1L157.1,30.5L154.1,29.7L150.7,27.4L147.4,26.9L141.9,27.0L138.5,26.1L132.5,25.5L128.1,25.5L120.6,26.2L121.3,27.5L120.9,29.0L121.7,29.8L116.1,29.5L113.6,30.2L109.3,29.3L103.8,30.2L101.8,29.8L99.1,28.3L96.1,31.8L94.9,32.4L90.6,31.1L86.4,27.7L89.6,26.9L88.0,23.8L84.5,22.8L78.0,22.7L74.3,21.9L71.0,22.6L71.9,23.8L70.5,24.7L60.1,24.6L56.1,23.6L56.2,22.4L46.7,22.0L42.8,22.5L37.0,22.0L31.2,20.9L30.0,22.9L23.6,23.9L19.7,24.0L22.1,22.3L25.0,22.1L30.0,19.9L36.1,18.4L41.4,16.5L42.2,14.5L38.4,12.7L33.8,11.5L24.5,11.5L22.6,10.7L17.4,10.5L15.0,9.9L17.9,8.8L12.2,7.9L9.5,8.3L3.0,10.5L3.3,11.5L1.0,12.3L-3.6,12.3L-4.1,13.2L-9.5,14.2L-12.4,13.6L-15.2,13.5L-15.2,105.1L-13.6,105.3L-12.6,105.0L-11.2,105.4L-9.2,105.4L-8.5,105.9L-5.8,104.7L-5.2,103.1L-6.6,101.5L-6.2,100.3L-3.5,97.8L-0.2,98.8L1.6,99.0L4.2,99.9L6.4,100.3L7.0,102.9L8.2,103.6L11.1,104.5L16.4,103.4L18.9,104.0L20.4,103.9L22.0,105.0L24.2,105.3L24.5,106.4L26.2,107.4L28.1,107.3L31.1,107.9L33.0,107.9L34.5,107.2L36.8,107.0L39.8,106.3L40.1,105.7L43.5,104.1L44.9,104.2L46.5,105.2L47.9,105.4L49.1,105.0L50.8,105.6L54.4,106.7L56.2,105.6L58.6,104.8L58.4,103.7L61.1,99.4L63.2,97.6L62.9,96.0L61.2,95.2L63.0,93.9L68.0,92.8L71.9,92.6L75.5,94.0L78.1,94.4L80.1,96.6L81.6,99.7L82.0,101.1L83.2,102.5L84.0,104.3L83.7,105.5L85.3,106.5L87.4,106.4L88.7,107.2L89.8,107.1L92.0,108.9L93.8,110.8L93.5,111.5L94.4,113.1L96.8,113.1L99.1,112.8L100.9,111.6L101.9,111.6L104.4,110.7L105.2,110.9L105.8,113.0L104.0,114.5L104.1,115.0L103.1,117.2L103.1,118.1L101.1,120.8L100.3,122.4L97.4,121.7L94.6,122.8L94.6,123.7L95.2,125.8L95.2,128.0L94.6,129.8L93.1,130.2L93.0,131.1ZM-2.0,0.0L-15.2,0.0L-15.2,3.2L-7.4,4.1L-1.7,4.1L0.2,0.8ZM8.8,2.6L4.8,2.3L0.9,4.6L0.2,7.1L3.7,6.3L11.3,6.1L16.2,5.2L15.7,4.1ZM122.0,14.6L118.2,13.3L114.2,14.3L112.7,16.7L116.0,18.2L119.1,18.7L127.9,17.5L128.8,18.0L134.0,17.4L136.7,16.6L137.8,15.4L133.0,14.5L129.3,14.3L126.3,13.5L124.7,15.0ZM142.5,16.2L140.5,16.8L146.4,18.1L151.0,18.3L154.2,17.7L152.6,16.7ZM240.1,32.1L243.6,31.5L243.6,29.6L240.2,30.7ZM130.2,89.6L128.9,90.0L129.9,91.1L129.5,92.9L127.3,93.3L127.3,96.0L126.9,97.1L127.0,98.9L128.5,100.7L128.1,103.2L128.3,106.5L127.5,109.4L128.4,112.0L127.8,113.4L128.0,115.0L127.4,117.4L128.5,118.7L129.7,116.5L131.8,117.0L131.0,114.7L129.6,112.9L129.6,111.8L131.2,107.8L134.8,107.4L133.4,104.0L132.3,99.9L131.4,97.7L131.9,95.9L131.6,93.5L130.7,91.7L130.9,90.5ZM128.4,21.3L125.1,21.5L123.8,22.9L126.7,23.4L131.5,23.7L132.0,22.5ZM210.7,36.5L211.2,35.4L208.2,34.9L206.4,35.6ZM193.8,74.9L196.8,73.9L196.8,73.1L194.1,73.4ZM148.0,121.4L145.5,121.8L145.9,122.5ZM40.8,19.6L36.8,19.1L35.4,20.1L38.9,20.7ZM244.2,38.7L243.6,39.4L243.6,40.3L243.6,41.1L243.6,42.0L243.6,42.8L243.6,43.7L243.6,44.6L243.6,45.4L243.6,46.3L243.6,47.1L243.6,48.0L243.6,48.8L243.6,49.7L243.6,50.5L243.6,51.4L243.6,52.3L245.6,50.7L244.4,49.7L244.8,48.5L247.0,49.2L248.7,50.8L252.6,50.4L255.5,50.9L256.2,52.5L257.6,53.2L260.9,53.8L262.7,54.7L264.9,55.0L266.5,54.1L265.2,53.5L267.3,52.3L267.3,51.0L272.0,50.3L273.5,48.3L268.6,45.7L266.0,45.7L262.8,45.0L260.5,45.2L259.5,46.3L257.8,43.1L251.5,41.1L247.0,39.4ZM247.0,29.5L243.6,29.6L243.6,31.5L245.1,31.8L250.2,31.3L251.1,30.6Z","PHL":"M64.2,214.8L62.7,215.2L62.0,218.3L62.1,220.6L61.8,222.1L62.1,223.2L61.4,223.8L60.4,222.8L61.1,228.0L63.6,228.5L63.7,229.3L62.8,230.3L63.5,231.4L64.6,232.3L66.3,231.2L68.2,232.8L68.8,231.3L70.5,233.0L71.0,234.4L72.0,234.8L73.3,236.0L73.5,234.4L71.9,232.6L72.3,231.4L71.3,231.1L70.7,231.9L69.6,230.1L68.5,229.9L67.6,230.5L66.4,230.6L65.9,229.3L66.1,228.4L65.1,226.4L65.8,225.2L65.8,224.2L67.4,223.4L68.6,220.1L67.7,219.0L67.4,217.8L67.9,215.6L66.5,216.0ZM52.7,250.5L54.8,248.9L56.1,247.6L57.2,245.8L57.2,245.3L58.4,244.8L58.7,244.1L59.9,243.1L59.5,241.7L58.6,242.0L58.7,243.0L57.9,243.8L55.1,247.3L54.4,247.7L52.8,249.5ZM68.5,239.3L67.3,239.3L66.9,242.0L67.6,242.8L69.3,242.1L70.1,241.1L70.5,239.6ZM70.4,248.3L71.0,247.2L70.5,245.5L71.8,242.3L70.8,241.5L70.0,241.9L69.5,243.2L69.6,244.7L68.4,245.1L68.2,246.1L68.7,246.8ZM74.8,240.3L74.5,241.8L75.5,242.3L75.5,244.4L76.2,244.9L76.9,244.1L76.2,242.2L75.9,240.2ZM76.9,236.1L74.0,236.0L74.2,237.2L75.8,238.8L76.2,240.3L76.8,241.0L78.0,241.0L77.5,238.2L77.8,237.3ZM63.0,232.8L62.5,233.6L63.2,234.6L63.7,236.2L64.7,237.2L65.6,235.8L65.5,234.0L64.6,233.0ZM79.2,247.4L77.7,245.8L77.4,246.2L77.7,248.0L75.7,248.6L75.3,250.0L74.5,249.9L73.8,251.1L72.7,251.3L72.6,250.5L71.3,249.5L70.1,250.6L69.8,251.4L68.0,251.9L67.4,252.7L67.1,254.2L67.5,255.5L68.5,253.2L71.2,254.1L71.5,252.7L73.0,253.2L73.7,254.1L73.0,255.5L73.3,257.6L75.0,259.0L77.5,260.2L78.2,259.1L77.9,257.4L77.3,256.2L78.6,254.3L79.4,256.4L80.5,255.5L80.9,254.6L80.9,253.1L80.5,252.6L80.1,249.1L79.7,247.5ZM71.2,246.9L72.0,244.9L72.9,243.9L72.2,243.4L71.2,245.1ZM74.9,245.7L74.8,244.9L73.6,244.5L72.5,245.6L72.9,246.3L74.2,246.3ZM72.2,237.0L71.3,237.3L73.0,238.6L73.2,238.1ZM74.1,232.3L74.4,231.5L73.7,230.7L73.2,232.2Z","PNG":"M161.3,296.7L161.8,294.9L161.4,294.4L160.2,294.0L160.4,295.8ZM158.1,295.1L157.0,295.2L157.3,297.1L156.3,297.4L155.1,299.0L153.2,299.4L150.0,299.5L149.2,299.2L147.2,299.4L147.4,300.2L149.6,301.5L150.4,301.3L151.2,302.0L153.6,302.0L156.0,300.7L156.9,299.4L157.9,299.5L158.8,298.8L158.4,297.5L159.6,296.6L159.6,295.2L158.7,294.7ZM124.8,311.9L125.2,312.3L128.6,312.1L129.9,312.7L132.1,311.4L132.1,310.8L131.2,309.1L132.8,308.7L135.5,306.5L136.9,307.3L139.2,307.8L140.2,308.3L142.2,311.6L142.8,311.8L143.2,312.9L144.4,313.8L145.5,315.2L147.3,315.7L151.5,316.2L152.3,317.0L153.7,317.2L154.3,315.9L151.9,315.0L151.5,314.3L149.8,312.9L150.0,311.7L147.9,311.7L147.5,310.4L146.9,309.9L146.6,308.3L145.3,307.6L143.7,305.8L143.0,304.3L143.5,303.5L145.7,303.3L145.6,302.1L144.3,300.8L143.2,300.7L141.3,299.7L139.6,299.1L139.4,296.9L138.0,295.4L137.3,295.2L135.4,293.4L134.0,293.2L132.5,292.0L130.7,291.6L128.5,290.8L125.4,289.2L124.8,289.1L124.8,294.8L124.8,302.2L124.4,303.6L124.8,304.2ZM170.4,303.4L170.0,302.3L168.9,301.5L167.5,299.4L166.7,299.4L166.8,300.9L168.1,302.1L168.5,303.5L169.7,304.0Z","PRK":"M86.4,144.8L84.6,143.2L83.4,142.8L84.0,140.8L86.2,139.9L90.5,137.0L90.6,134.0L92.8,132.0L93.5,132.0L93.0,131.1L92.1,129.9L91.0,129.5L90.5,131.3L89.2,131.6L88.1,132.9L85.4,133.0L86.1,134.5L85.6,135.1L82.8,134.6L81.9,133.8L81.0,134.3L80.7,135.2L79.1,136.8L75.8,138.4L74.2,140.0L74.8,140.7L77.2,141.6L77.4,142.5L76.3,145.0L75.2,146.5L76.7,146.9L77.5,147.9L79.0,147.5L81.1,147.8L82.7,146.0L85.4,145.9Z","NZL":"M222.7,424.5L222.3,423.0L221.2,421.8L219.7,423.3L219.3,425.0L217.7,426.3L217.0,428.6L215.4,430.3L214.1,430.9L212.1,432.6L209.5,434.0L208.2,434.3L206.4,436.1L204.6,437.4L203.2,439.4L203.5,440.2L203.2,441.7L206.1,441.7L207.6,442.3L208.2,443.1L210.4,443.2L212.2,442.9L215.3,439.9L216.5,437.6L216.9,435.8L217.5,434.5L220.4,433.4L222.0,433.6L221.4,431.4L223.0,430.4L224.0,428.8L226.2,426.1L225.6,425.3L226.2,423.6L224.5,423.5ZM223.1,402.3L222.7,403.2L225.2,406.6L226.7,407.6L226.8,409.3L227.7,409.3L227.6,411.1L228.2,412.3L227.5,413.8L227.2,415.8L226.5,416.4L224.8,417.0L225.1,418.3L228.4,419.8L229.1,421.0L228.9,422.2L227.3,424.5L228.9,425.0L229.3,425.6L231.4,424.2L234.0,420.6L234.8,418.8L234.3,417.8L235.7,416.8L237.4,417.0L237.4,415.5L238.3,414.9L239.2,411.9L237.5,411.4L235.5,413.0L233.8,412.6L231.8,411.8L231.1,409.4L229.8,407.7L229.3,409.5L227.5,408.9L227.8,407.1L226.5,405.2L227.0,404.5L226.3,403.4L224.8,402.6Z","MNG":"M-15.2,105.1L-15.2,124.9L-14.2,125.0L-12.5,128.8L-11.0,130.5L-8.5,130.2L-1.6,131.0L-0.1,130.6L5.2,131.4L6.0,132.2L9.3,133.0L11.3,133.9L13.7,133.4L13.7,134.2L15.4,134.3L15.8,133.9L20.6,132.0L24.9,131.4L28.7,131.4L31.7,130.3L33.5,128.3L36.3,127.0L34.7,124.7L35.4,123.1L36.2,122.3L37.8,122.3L38.4,122.8L41.4,123.4L42.7,122.7L44.2,121.2L47.7,120.9L49.5,119.7L50.4,118.0L52.8,117.7L55.8,116.5L60.0,116.9L60.6,116.0L60.0,115.0L56.3,112.1L54.1,112.0L52.8,113.2L51.0,112.5L49.4,112.5L48.4,113.1L47.4,112.2L48.6,109.6L50.8,105.6L49.1,105.0L47.9,105.4L46.5,105.2L44.9,104.2L43.5,104.1L40.1,105.7L39.8,106.3L36.8,107.0L34.5,107.2L33.0,107.9L31.1,107.9L28.1,107.3L26.2,107.4L24.5,106.4L24.2,105.3L22.0,105.0L20.4,103.9L18.9,104.0L16.4,103.4L11.1,104.5L8.2,103.6L7.0,102.9L6.4,100.3L4.2,99.9L1.6,99.0L-0.2,98.8L-3.5,97.8L-6.2,100.3L-6.6,101.5L-5.2,103.1L-5.8,104.7L-8.5,105.9L-9.2,105.4L-11.2,105.4L-12.6,105.0L-13.6,105.3Z","MYS":"M0.4,257.5L1.0,259.1L1.1,260.4L1.9,263.7L2.2,266.1L4.0,268.6L4.0,269.9L5.4,271.0L6.5,272.1L8.3,273.5L10.2,274.6L11.2,274.9L13.1,274.8L11.6,271.0L10.5,269.7L10.5,267.7L10.2,266.8L10.6,264.6L10.4,263.0L9.1,260.7L7.7,259.5L7.1,258.4L6.4,258.2L5.7,259.6L4.8,259.3L3.8,259.7L3.3,259.1L3.2,258.2L2.4,257.5L1.1,257.1ZM53.5,265.4L54.0,264.8L54.8,265.1L56.3,264.7L56.5,264.2L55.4,263.1L56.0,262.4L56.9,262.6L58.3,262.2L58.5,261.1L56.6,260.4L55.2,259.5L54.8,258.8L53.7,259.2L53.7,257.4L52.6,256.6L52.2,255.6L51.5,256.7L51.0,255.6L50.2,257.2L49.1,258.5L48.1,260.6L47.0,261.1L47.3,262.3L46.1,262.8L45.8,262.8L44.9,263.5L45.2,264.6L44.5,265.9L42.8,263.9L42.4,265.2L41.0,266.9L39.7,268.8L38.8,269.3L35.7,270.0L34.2,271.5L34.3,272.5L34.0,273.9L33.3,274.7L31.5,274.0L30.4,274.0L29.3,272.9L29.4,274.4L32.0,277.0L33.3,276.4L35.8,276.5L36.8,276.0L37.1,275.0L38.0,274.5L39.4,274.5L39.6,275.0L41.5,275.7L42.3,275.0L44.3,274.9L45.2,273.1L45.0,272.1L46.2,271.2L45.9,270.1L47.0,269.4L47.4,267.9L47.4,266.2L48.4,264.8L52.1,264.8Z","LAO":"M6.5,201.7L5.1,201.4L4.6,202.1L5.3,203.6L5.2,206.0L3.7,205.7L3.5,204.5L2.3,205.4L0.8,207.4L0.4,208.9L1.0,208.6L1.6,209.7L1.2,210.8L1.9,211.8L3.5,211.5L3.9,213.6L3.2,215.6L3.4,216.9L2.8,218.5L3.4,218.8L6.4,216.3L8.3,217.4L9.3,216.9L10.3,215.5L12.0,215.9L13.5,218.0L14.7,219.5L14.5,221.7L15.4,223.4L16.5,224.0L17.1,225.0L16.8,226.2L16.7,229.1L15.8,229.8L18.0,231.3L18.6,230.8L18.2,229.8L19.8,229.0L20.8,229.9L22.9,228.5L22.8,227.6L23.3,226.6L21.9,224.9L22.5,223.9L20.4,222.4L19.8,220.7L17.3,217.9L16.6,216.5L15.5,215.4L15.6,214.6L14.4,214.2L11.9,212.3L12.3,211.1L13.9,211.4L15.0,209.9L14.1,208.7L13.9,207.7L12.3,206.7L11.1,207.5L9.4,206.9L8.7,205.6L9.0,204.5Z","JPN":"M133.4,125.6L131.8,124.6L130.0,123.1L127.7,120.7L126.6,121.9L127.2,123.5L126.8,125.9L126.1,127.3L125.8,128.8L124.2,128.8L122.5,130.2L121.5,130.7L121.3,131.6L122.1,133.3L121.8,134.5L123.0,134.7L123.8,133.6L125.3,133.7L122.8,131.8L124.0,131.0L124.8,131.8L126.1,131.1L127.4,131.0L129.4,132.1L131.7,133.0L132.2,131.5L133.9,129.9L135.9,129.7L138.1,128.9L137.3,126.8L136.4,126.2ZM94.9,162.4L94.2,161.5L92.8,161.6L92.5,162.3L90.3,163.2L90.1,163.7L91.9,165.0L92.5,164.2L93.3,165.8L91.9,167.7L92.3,169.4L92.0,170.5L93.1,170.9L94.7,170.6L95.4,170.1L96.6,165.9L97.4,165.1L97.1,163.6L96.2,162.2ZM104.6,160.1L103.8,159.7L102.6,160.2L102.3,160.9L100.9,161.2L99.8,161.0L99.4,162.1L98.6,162.7L99.0,163.5L99.0,164.8L100.4,165.1L101.4,163.2L102.4,162.7L104.1,163.6L104.7,162.4L105.8,161.6L105.5,160.2ZM125.5,135.2L125.2,136.9L122.7,137.0L121.6,137.9L121.5,139.9L122.0,141.9L121.2,143.9L120.0,146.5L118.4,147.6L116.7,149.7L114.2,150.7L113.7,151.3L111.8,151.4L109.7,154.0L109.9,154.8L108.6,155.8L107.6,155.6L107.1,154.9L104.2,155.6L101.6,155.9L100.2,155.7L97.0,158.4L95.5,159.6L94.4,159.6L94.2,161.1L96.6,160.8L97.7,161.5L98.2,160.2L100.9,160.0L103.4,159.1L104.2,158.5L105.8,158.3L107.7,159.2L106.9,160.0L107.1,161.3L107.9,162.6L109.4,162.5L110.6,160.4L112.2,159.9L111.2,158.6L112.3,158.2L116.3,158.9L117.5,157.2L118.7,158.5L119.5,156.5L120.7,156.1L121.2,157.6L123.1,156.6L123.2,155.7L124.4,155.0L123.7,153.8L123.7,152.2L124.8,150.5L125.0,148.9L124.6,147.2L125.2,145.8L126.3,145.6L126.9,143.6L127.6,143.1L127.8,140.6L127.3,139.0L126.2,137.9L126.1,136.2Z","IDN":"M75.9,311.3L74.4,312.2L73.9,313.0L73.2,312.7L72.2,313.6L71.8,314.9L72.7,316.2L74.4,315.5L76.3,313.3ZM124.8,289.1L123.7,288.6L121.2,288.2L117.7,286.3L115.1,285.2L113.0,286.4L113.2,287.1L112.2,287.7L110.8,287.9L110.4,289.0L108.1,291.7L106.7,291.7L104.0,287.7L103.9,286.0L104.3,284.8L103.4,282.6L101.9,282.6L99.4,281.3L97.8,281.6L96.8,282.4L95.2,283.0L95.3,284.9L97.2,285.5L97.5,287.0L98.4,287.8L100.4,287.9L102.0,287.8L103.3,287.3L103.2,288.4L102.3,288.9L101.1,288.5L99.7,289.8L98.1,289.4L98.5,290.4L99.7,291.5L99.7,292.9L100.4,294.3L101.2,294.2L102.5,291.8L103.4,293.4L104.0,293.3L105.6,294.3L107.2,295.6L109.6,295.9L111.5,296.9L112.9,297.2L115.0,298.4L116.5,299.9L117.0,302.2L118.3,304.0L117.5,304.3L118.0,305.4L119.0,306.6L118.3,308.5L119.9,308.7L121.6,308.3L124.8,311.9L124.8,304.2L124.4,303.6L124.8,302.2L124.8,294.8ZM29.3,272.9L28.6,273.3L27.6,274.8L27.1,277.2L27.2,278.7L28.2,279.9L27.9,281.7L28.8,283.0L29.8,283.5L30.5,284.9L30.3,286.5L30.7,286.8L31.2,290.3L32.2,290.1L33.6,290.7L34.6,290.3L36.0,290.7L36.0,292.4L37.4,291.6L38.4,291.9L39.5,291.2L41.2,291.1L42.0,292.1L42.9,291.5L44.3,292.2L44.7,294.6L48.6,292.6L49.7,290.2L49.9,289.0L50.5,288.1L50.0,287.2L50.4,285.1L51.8,284.2L52.5,283.3L53.5,282.7L53.2,281.1L53.3,279.2L54.0,277.4L55.4,277.0L56.4,277.2L57.8,276.6L56.8,275.4L55.1,274.1L54.4,273.1L55.0,271.9L53.6,269.3L52.3,267.4L53.7,267.3L54.0,266.7L53.5,265.4L52.1,264.8L48.4,264.8L47.4,266.2L47.4,267.9L47.0,269.4L45.9,270.1L46.2,271.2L45.0,272.1L45.2,273.1L44.3,274.9L42.3,275.0L41.5,275.7L39.6,275.0L39.4,274.5L38.0,274.5L37.1,275.0L36.8,276.0L35.8,276.5L33.3,276.4L32.0,277.0L29.4,274.4ZM-7.7,274.9L-8.4,275.0L-7.9,276.7L-6.5,277.8L-6.3,276.6ZM-2.6,286.2L-2.2,285.7L-3.4,283.2L-4.3,284.2L-3.4,285.8ZM50.7,310.1L50.9,309.4L49.9,308.7L48.9,309.5L49.0,310.6L49.9,311.3ZM47.0,308.6L44.1,308.4L44.5,309.3L45.2,309.5L46.4,310.8L46.7,310.2L47.8,309.4ZM18.4,285.8L18.0,285.2L17.0,285.4L15.6,287.1L17.6,287.6L18.3,289.9L19.9,290.7L20.3,289.4L19.4,288.6ZM70.6,295.9L69.6,296.2L69.3,298.2L68.8,299.4L69.5,299.8L70.0,298.9L70.2,296.6ZM69.0,298.4L69.3,297.3L69.1,296.2L68.1,296.7L68.2,297.7ZM25.3,267.1L25.5,266.0L25.0,265.3L24.4,265.9ZM25.0,290.5L24.6,289.1L23.4,289.0L23.2,291.2ZM107.7,282.3L109.1,283.9L110.0,284.3L110.5,283.7L109.3,282.6ZM108.0,285.6L110.2,286.5L110.2,285.8ZM93.8,280.0L93.5,281.1L94.7,281.2L95.2,280.5ZM86.6,272.8L87.1,272.2L87.1,270.9L85.9,271.9ZM85.7,285.8L84.5,284.8L83.6,285.1L83.9,286.1ZM76.0,286.0L74.2,285.9L74.4,287.0L75.6,286.6ZM95.4,308.0L96.5,306.0L96.1,305.0L95.2,306.1L94.7,307.5ZM81.6,306.8L81.0,306.5L78.7,307.4L80.6,307.8ZM74.8,308.5L74.4,309.5L76.4,309.2L76.5,308.7ZM94.4,284.6L94.6,283.4L93.4,283.4L93.7,284.4ZM-10.7,261.7L-11.8,261.5L-12.7,260.7L-14.0,260.3L-14.6,261.5L-13.7,263.3L-10.8,266.6L-9.2,267.5L-7.9,269.6L-7.3,270.0L-7.0,271.7L-4.4,273.3L-3.7,274.8L-2.6,278.8L-1.2,279.7L-0.4,281.1L0.9,282.9L1.5,284.6L2.6,286.8L2.6,287.5L3.4,289.1L4.8,291.1L6.5,292.6L7.7,294.5L8.9,295.6L11.7,297.8L14.0,300.7L14.1,299.3L15.5,300.1L16.3,299.4L17.1,300.3L17.7,299.9L17.9,297.5L17.8,294.6L18.1,293.6L17.8,292.6L18.4,290.9L17.0,288.7L16.4,288.3L14.2,288.4L14.8,287.3L13.9,286.7L13.3,283.6L11.3,283.1L10.4,281.9L10.4,280.7L11.5,279.8L10.6,278.3L9.3,278.3L8.7,277.5L7.5,277.3L6.6,275.6L5.4,274.3L4.5,274.1L3.2,272.1L2.1,272.6L1.4,272.1L-0.8,268.9L-5.1,265.7L-5.3,264.6L-6.4,262.9L-7.5,261.8L-9.6,261.6ZM69.4,310.1L68.8,309.4L67.8,310.2L66.9,309.6L65.3,310.0L62.8,308.8L60.7,309.6L60.3,310.4L62.6,310.8L64.1,311.3L65.9,311.2L67.3,310.6ZM60.9,312.8L58.4,312.8L58.1,314.0L59.7,314.2L61.3,315.7L62.2,316.0L63.4,315.1L62.4,313.8L61.8,313.8ZM55.5,309.1L55.2,308.4L54.2,309.2L55.5,310.1L54.2,310.5L53.5,309.5L52.3,309.3L51.3,309.9L51.1,311.5L51.9,311.8L55.4,310.9L57.9,310.6L57.8,309.2ZM75.8,276.5L76.8,274.8L76.1,274.1L73.9,276.4L72.6,277.1L70.9,276.7L69.7,277.0L68.3,276.4L65.7,276.3L65.3,275.8L63.7,275.5L62.5,277.1L61.7,276.6L60.3,279.2L60.0,280.3L60.2,281.7L59.4,283.2L58.8,284.9L58.8,286.8L58.1,288.7L57.2,289.7L57.3,291.1L57.8,292.4L59.1,292.2L59.7,294.1L59.7,295.5L59.0,299.0L60.0,299.9L61.8,299.4L61.8,298.0L62.2,296.2L62.0,294.3L62.2,293.0L61.7,290.7L62.9,289.3L64.1,289.6L64.1,291.1L63.7,292.5L65.8,294.3L65.4,296.0L65.7,296.7L66.7,297.0L67.6,295.8L69.7,295.2L69.7,294.4L67.8,292.7L68.2,291.2L66.5,288.2L65.0,286.8L66.1,286.5L68.5,284.7L69.5,283.4L70.2,283.0L71.2,283.5L71.2,282.3L70.6,282.0L69.7,282.7L67.8,282.7L66.9,283.3L65.5,283.0L64.0,284.9L62.9,284.8L62.5,283.6L61.2,282.3L60.9,280.7L61.3,279.4L62.0,278.4L63.0,278.2L64.0,278.5L65.3,278.3L66.5,278.5L70.3,278.3L70.9,278.8L72.3,278.9L74.4,278.4ZM22.4,301.0L21.5,300.7L20.8,301.3L18.5,300.7L17.9,301.4L16.7,303.7L18.1,304.0L19.9,304.7L20.2,306.0L22.2,306.1L24.1,307.0L25.7,307.3L26.6,306.8L28.3,306.9L30.6,307.6L32.3,308.5L35.0,309.1L38.6,309.4L40.3,309.0L44.4,310.7L43.8,309.4L44.0,307.7L42.8,306.7L40.3,307.0L38.9,306.4L38.2,304.3L36.8,304.1L35.1,303.3L34.0,303.3L33.4,302.5L32.7,302.6L31.8,304.3L26.4,303.8L25.3,301.9L23.4,301.8ZM84.4,277.0L84.2,276.5L85.3,275.3L85.3,274.1L84.1,273.6L83.5,275.6L83.9,278.3L84.4,279.0L84.3,280.8L85.4,282.5L84.9,278.9L85.2,278.4L87.4,278.7L86.2,276.9L87.4,276.1L87.4,274.5L86.5,274.7L85.7,275.9ZM90.6,290.0L89.6,289.8L85.9,290.0L85.5,291.1L86.5,292.0L88.2,291.7L89.7,292.1L90.9,291.7L91.4,292.1L93.8,293.5L94.0,292.5L92.5,290.5ZM81.8,290.8L80.9,290.7L79.3,291.1L79.8,292.6L81.3,293.4L82.9,292.7L82.9,291.9ZM105.8,300.0L105.4,299.0L104.6,300.0L104.4,301.0L104.9,302.2L105.8,301.6ZM105.2,302.5L104.0,301.6L103.7,303.7L104.6,303.8ZM117.4,308.9L118.1,308.2L118.7,306.9L118.1,305.9L116.6,306.0L115.7,306.7L114.8,308.9L116.6,309.4ZM9.2,277.4L7.8,276.0L7.7,277.1ZM14.0,275.7L12.9,276.5L13.9,277.1ZM42.1,304.9L42.5,304.0L39.2,304.2L38.9,305.0L41.0,305.3ZM92.4,285.9L91.3,286.2L92.1,287.2ZM-10.8,271.7L-10.9,271.2L-12.8,269.8L-12.8,270.7ZM72.8,308.9L72.4,308.7L71.0,309.5L71.3,310.1Z","IND":"M-15.2,178.0L-15.2,189.7L-14.8,188.9L-14.8,186.9L-12.5,185.3L-12.0,184.7L-10.1,184.3L-9.4,183.3L-8.1,182.2L-8.2,181.2L-10.4,180.4L-10.8,178.3L-12.1,176.9L-13.6,177.8L-13.9,178.3Z","NCL":"M195.5,350.9L195.4,351.7L196.3,352.9L198.7,355.4L201.3,356.9L201.5,357.3L203.3,358.3L203.8,357.3L201.9,355.7L199.9,354.4L198.5,352.7L196.2,351.0Z","FJI":"M243.6,336.6L243.6,336.5L242.2,336.9L240.0,338.2L240.6,339.2L243.4,338.6L242.8,337.6ZM238.4,340.8L236.4,341.1L235.3,342.5L235.4,343.3L237.1,343.9L238.0,343.9L239.6,343.3L239.3,341.8Z","CHN":"M24.3,204.7L25.3,204.1L27.5,204.3L27.9,205.0L29.0,204.6L30.2,204.8L29.4,206.8L30.8,209.1L32.0,208.2L31.0,207.0L31.0,206.4L32.8,205.1L35.3,204.5L36.4,203.5L38.3,203.8L39.6,202.6L41.0,202.3L41.1,202.2L41.2,202.1L41.5,200.0L42.7,201.2L43.5,201.1L45.2,200.8L46.3,200.1L47.2,200.5L50.2,199.7L50.4,198.9L53.2,196.6L53.7,196.6L55.0,195.1L55.1,193.8L56.5,194.0L57.6,192.7L57.9,191.7L59.5,190.4L59.8,189.3L59.3,188.8L60.5,187.8L61.8,185.2L62.5,184.4L62.7,183.5L64.2,181.0L65.8,180.7L66.1,177.6L66.7,178.0L66.8,175.4L65.3,174.2L64.4,174.0L63.9,173.0L65.6,172.1L66.6,171.8L66.0,170.4L64.1,169.0L65.0,168.5L66.0,169.0L66.5,168.3L65.2,167.3L65.2,166.7L63.5,165.7L63.5,164.4L62.4,162.3L61.5,159.8L59.6,159.0L58.5,157.5L59.2,156.5L61.1,154.5L62.1,153.8L63.9,151.9L66.8,150.6L68.0,151.1L68.6,150.7L68.8,149.0L65.9,148.9L63.2,147.6L62.0,148.0L59.2,150.1L57.7,149.3L58.1,148.0L57.7,146.9L54.8,146.4L53.5,144.8L54.1,143.0L55.7,143.3L57.6,142.9L58.5,142.1L59.7,140.3L62.4,139.2L64.5,136.8L66.6,137.1L67.8,138.1L65.5,141.3L66.4,142.1L65.9,144.0L68.0,142.2L71.1,140.8L73.4,140.6L74.2,140.0L75.8,138.4L79.1,136.8L80.7,135.2L81.0,134.3L81.9,133.8L82.8,134.6L85.6,135.1L86.1,134.5L85.4,133.0L88.1,132.9L89.2,131.6L90.5,131.3L91.0,129.5L92.1,129.9L93.0,131.1L93.1,130.2L94.6,129.8L95.2,128.0L95.2,125.8L94.6,123.7L94.6,122.8L97.4,121.7L100.3,122.4L101.1,120.8L103.1,118.1L103.1,117.2L104.1,115.0L104.0,114.5L105.8,113.0L105.2,110.9L104.4,110.7L101.9,111.6L100.9,111.6L99.1,112.8L96.8,113.1L94.4,113.1L93.5,111.5L93.8,110.8L92.0,108.9L89.8,107.1L88.7,107.2L87.4,106.4L85.3,106.5L83.7,105.5L84.0,104.3L83.2,102.5L82.0,101.1L81.6,99.7L80.1,96.6L78.1,94.4L75.5,94.0L71.9,92.6L68.0,92.8L63.0,93.9L61.2,95.2L62.9,96.0L63.2,97.6L61.1,99.4L58.4,103.7L58.6,104.8L56.2,105.6L54.4,106.7L50.8,105.6L48.6,109.6L47.4,112.2L48.4,113.1L49.4,112.5L51.0,112.5L52.8,113.2L54.1,112.0L56.3,112.1L60.0,115.0L60.6,116.0L60.0,116.9L55.8,116.5L52.8,117.7L50.4,118.0L49.5,119.7L47.7,120.9L44.2,121.2L42.7,122.7L41.4,123.4L38.4,122.8L37.8,122.3L36.2,122.3L35.4,123.1L34.7,124.7L36.3,127.0L33.5,128.3L31.7,130.3L28.7,131.4L24.9,131.4L20.6,132.0L15.8,133.9L15.4,134.3L13.7,134.2L13.7,133.4L11.3,133.9L9.3,133.0L6.0,132.2L5.2,131.4L-0.1,130.6L-1.6,131.0L-8.5,130.2L-11.0,130.5L-12.5,128.8L-14.2,125.0L-15.2,124.9L-15.2,178.0L-13.9,178.3L-13.6,177.8L-12.1,176.9L-10.8,178.3L-10.4,180.4L-8.2,181.2L-7.5,180.2L-5.8,181.5L-5.2,183.6L-4.1,183.5L-3.9,187.0L-4.1,189.3L-6.1,191.5L-6.6,191.6L-7.5,194.3L-7.1,194.7L-7.0,196.3L-5.5,195.6L-3.8,195.6L-4.0,196.6L-3.6,197.3L-3.5,198.8L-2.0,199.2L-2.0,201.2L-2.5,202.5L-0.2,202.9L-0.2,203.6L0.6,204.9L1.6,204.9L2.6,204.2L3.5,204.5L3.7,205.7L5.2,206.0L5.3,203.6L4.6,202.1L5.1,201.4L6.5,201.7L7.7,200.4L9.2,201.4L10.2,200.4L11.0,200.3L11.9,201.1L12.3,200.4L13.3,200.5L14.6,199.8L14.8,199.0L16.1,198.3L17.8,199.8L18.7,199.6L20.6,200.3L19.9,201.6L20.5,203.0L22.4,204.4L23.8,204.2ZM33.2,210.0L31.0,209.8L28.1,210.6L28.0,211.2L26.5,212.3L26.3,213.8L26.5,215.1L29.0,216.2L31.8,214.4L32.2,212.9L32.9,211.5L33.5,211.2Z","MAC":"M41.0,202.3L41.2,202.1L41.1,202.2Z","HKG":"M42.7,201.2L43.5,202.0L43.5,201.1Z","KHM":"M22.9,228.5L20.8,229.9L19.8,229.0L18.2,229.8L18.6,230.8L18.0,231.3L15.8,229.8L14.6,229.5L9.7,229.8L8.9,230.5L8.3,231.6L7.1,232.6L7.6,235.7L8.4,236.5L8.3,237.7L8.9,239.0L9.5,239.9L9.6,241.8L10.7,241.0L11.3,241.9L10.7,242.9L13.0,243.1L13.5,243.6L14.8,243.1L16.4,241.7L17.5,241.5L18.6,242.2L18.8,241.5L17.8,240.5L17.8,239.3L18.3,238.8L19.3,239.1L19.5,238.2L21.1,237.7L21.8,237.0L22.9,236.7L22.8,234.4L23.2,233.0L22.3,230.5Z","MMR":"M0.4,208.9L0.8,207.4L2.3,205.4L3.5,204.5L2.6,204.2L1.6,204.9L0.6,204.9L-0.2,203.6L-0.2,202.9L-2.5,202.5L-2.0,201.2L-2.0,199.2L-3.5,198.8L-3.6,197.3L-4.0,196.6L-3.8,195.6L-5.5,195.6L-7.0,196.3L-7.1,194.7L-7.5,194.3L-6.6,191.6L-6.1,191.5L-4.1,189.3L-3.9,187.0L-4.1,183.5L-5.2,183.6L-5.8,181.5L-7.5,180.2L-8.2,181.2L-8.1,182.2L-9.4,183.3L-10.1,184.3L-12.0,184.7L-12.5,185.3L-14.8,186.9L-14.8,188.9L-15.2,189.7L-15.2,224.7L-14.0,225.0L-12.9,223.4L-10.3,222.0L-9.7,221.3L-9.2,219.4L-8.6,220.3L-8.0,222.2L-7.2,222.1L-7.4,223.9L-7.0,224.4L-6.7,228.0L-5.3,231.9L-4.3,233.9L-4.0,237.2L-4.1,238.9L-3.8,239.4L-4.0,241.5L-4.7,242.6L-4.5,243.8L-4.0,244.3L-3.8,242.7L-2.5,241.1L-1.2,238.8L-1.8,236.1L-2.4,235.4L-2.6,232.0L-3.3,230.8L-4.4,229.7L-5.3,228.2L-5.5,226.8L-4.4,226.1L-4.3,223.8L-4.0,222.9L-4.8,220.6L-6.7,218.1L-6.9,216.9L-7.7,215.3L-6.9,214.8L-7.0,213.7L-6.6,211.9L-5.4,211.1L-3.3,210.8L-3.0,209.9L-2.0,209.7L-0.3,208.5Z","BRN":"M45.8,262.8L45.7,262.4L43.5,263.9L42.8,263.9L44.5,265.9L45.2,264.6L44.9,263.5Z","AUS":"M131.5,321.8L130.5,321.4L130.4,319.6L130.1,318.5L129.3,317.5L128.4,318.3L127.7,321.7L126.9,323.7L127.4,324.0L126.7,325.3L126.8,326.4L126.3,328.3L126.6,329.5L126.4,330.6L126.8,332.7L126.2,334.6L126.1,336.2L125.5,338.3L124.8,339.5L124.3,340.9L123.4,341.7L121.9,341.9L119.5,340.7L118.8,339.2L116.5,338.5L114.8,336.8L112.7,335.6L112.0,335.6L110.5,334.5L110.3,333.9L108.2,332.5L107.8,331.7L109.3,329.5L109.6,328.3L109.4,326.6L111.4,325.5L111.3,324.7L112.5,323.2L111.3,321.9L110.4,322.5L109.9,323.5L109.0,321.7L107.2,322.8L105.8,321.9L104.3,322.0L103.2,321.4L101.1,321.0L100.5,320.1L99.5,320.3L99.2,322.4L98.6,322.8L95.7,323.0L93.4,323.4L91.9,325.4L92.1,326.6L90.9,327.5L90.5,328.9L89.5,330.4L90.6,331.8L89.7,332.3L85.9,331.6L84.3,329.7L81.9,328.1L80.9,329.6L80.4,329.1L79.5,329.4L79.2,330.7L78.2,330.4L76.7,331.5L76.9,332.3L75.6,333.1L74.2,335.2L74.8,336.4L71.5,337.7L72.4,339.0L71.6,341.2L70.5,339.0L69.9,337.5L69.2,338.8L68.3,339.4L67.5,340.6L67.7,342.9L66.5,344.7L65.4,346.9L64.5,348.2L63.6,348.8L61.5,349.7L59.7,350.1L58.2,350.0L57.1,350.9L55.4,351.3L53.0,352.5L50.9,352.3L48.8,353.6L47.1,355.2L45.2,356.1L44.5,356.8L43.8,358.2L43.1,358.1L42.5,356.8L41.7,359.2L42.0,360.6L41.9,362.0L41.3,363.1L40.9,365.5L41.6,367.4L43.3,370.5L43.3,372.0L41.2,369.7L40.8,370.0L41.4,371.3L42.2,372.2L41.4,373.0L42.7,375.7L43.1,378.3L44.3,379.9L44.5,381.0L45.6,383.0L45.6,385.8L46.2,387.8L47.8,390.9L47.7,396.2L47.3,397.4L46.2,397.7L45.7,399.9L47.9,400.9L48.7,401.8L50.3,402.5L53.5,402.8L55.2,402.5L57.6,400.7L59.2,400.3L60.4,398.9L62.2,398.9L65.2,398.4L67.2,398.5L67.4,399.0L69.4,398.6L70.7,399.0L72.0,398.4L73.5,396.0L75.4,395.1L78.9,393.1L83.2,392.9L85.5,392.2L88.2,390.9L91.7,390.5L93.7,390.6L94.8,390.2L96.6,390.9L98.1,392.0L99.8,391.9L101.1,392.6L102.2,392.6L104.2,393.9L103.8,394.6L104.4,396.1L105.9,396.7L106.2,397.7L107.2,398.7L108.6,402.3L110.9,399.1L113.4,397.7L114.0,396.2L115.3,396.2L115.5,397.5L114.2,399.6L113.9,402.2L112.7,402.2L112.3,403.3L114.8,403.0L115.5,400.6L116.0,399.6L117.2,401.7L117.3,402.6L116.3,404.6L118.9,404.9L120.4,406.3L121.4,408.3L121.1,410.4L123.7,413.1L124.9,413.3L126.1,414.3L127.1,413.9L129.7,414.6L132.6,415.9L134.3,414.6L136.0,413.7L139.4,415.3L139.9,416.2L142.7,415.3L144.3,413.8L145.8,412.8L147.0,412.4L150.1,412.3L152.0,411.4L152.1,409.0L152.9,405.4L154.0,403.2L154.4,403.1L155.2,400.1L156.0,399.1L156.8,396.7L157.8,395.2L158.8,394.7L159.8,393.5L160.0,392.2L161.2,390.0L161.5,387.0L162.2,384.6L162.5,382.5L163.2,381.0L163.2,378.8L161.8,375.2L161.6,372.1L161.9,370.9L161.1,369.9L161.1,369.0L160.3,368.2L159.7,366.8L158.7,366.1L158.0,364.7L156.8,364.0L154.8,362.1L154.6,359.0L153.9,359.0L152.5,357.6L151.3,358.5L149.8,354.0L148.2,352.0L148.5,351.0L145.9,349.5L144.4,347.8L143.5,347.9L141.5,346.8L141.0,345.9L141.1,344.9L140.2,343.9L140.5,341.7L139.8,339.7L138.3,337.4L138.4,336.2L137.8,334.2L137.9,332.3L136.0,330.7L135.4,329.8L133.9,330.6L133.2,330.2L132.6,328.1L132.7,327.0L132.2,324.2L131.3,323.1ZM161.6,370.1L162.5,367.7L161.5,368.2ZM111.8,328.3L110.9,328.5L110.7,329.8L112.3,330.0ZM93.2,319.8L93.3,321.1L94.2,321.8L96.0,320.0L95.2,319.2L94.5,319.7ZM114.5,405.1L113.7,404.6L111.6,405.1L111.9,406.1L114.0,406.2ZM137.1,422.8L136.0,423.4L136.4,425.0L137.8,427.1L137.8,428.9L138.5,430.3L140.2,432.4L141.7,432.3L142.7,432.6L144.4,430.1L145.5,431.3L146.1,431.1L145.9,429.0L146.2,427.9L147.1,427.1L147.0,423.3L146.1,422.7L144.5,423.5L143.1,423.5L141.0,424.1L137.9,422.7Z","VEN":"M608.9,250.1L608.0,249.8L606.6,249.9L605.0,250.6L605.8,248.2L606.6,247.2L605.0,246.3L604.4,245.5L603.6,245.7L602.5,245.1L601.9,245.8L601.3,244.4L600.4,243.5L600.8,242.4L598.3,242.8L597.2,242.7L594.2,244.7L593.4,244.8L591.2,244.1L590.0,242.8L587.7,242.9L585.0,243.4L583.9,243.0L583.4,240.9L582.1,240.0L580.9,239.7L579.7,239.8L579.1,238.0L578.6,237.4L577.7,238.4L577.8,240.2L574.1,241.6L573.9,242.3L574.3,244.1L575.4,246.0L575.2,247.3L574.6,248.0L573.4,248.3L573.2,247.3L572.1,245.6L573.5,243.5L573.7,242.7L572.6,240.1L572.9,239.3L574.5,238.5L572.6,239.2L571.7,240.8L570.4,242.1L569.8,243.3L569.4,245.7L568.3,247.7L569.2,247.6L570.0,248.1L570.4,249.8L571.2,250.7L571.1,253.9L571.8,254.2L572.2,255.2L575.5,255.5L576.5,255.2L578.2,255.7L580.3,258.5L583.2,258.4L585.1,258.0L585.9,258.2L586.3,258.9L585.2,261.6L585.1,264.2L585.7,266.5L586.7,268.0L585.2,269.9L587.0,271.6L588.1,275.7L589.4,277.1L590.5,277.2L591.7,276.6L592.7,277.0L593.5,276.1L594.6,275.6L596.5,274.3L596.7,273.3L598.7,272.2L598.7,271.6L597.1,271.4L596.2,268.8L596.2,267.4L595.1,266.3L595.1,265.5L596.0,265.5L596.8,266.2L599.0,266.3L600.0,267.4L600.6,267.2L600.7,265.9L601.7,265.4L602.5,265.7L604.3,265.0L605.1,264.2L606.0,264.1L607.2,262.5L606.7,261.8L604.8,259.3L605.6,258.3L605.5,256.6L606.8,256.3L607.8,255.7L606.8,253.8L607.4,252.7L608.9,251.8L609.5,250.9Z","URY":"M629.2,398.1L628.7,397.7L628.7,396.1L629.9,394.6L628.5,393.4L628.0,392.2L626.6,391.5L625.5,390.2L623.5,389.3L622.5,388.1L621.6,388.7L620.6,387.2L618.7,385.4L617.5,386.0L616.3,385.7L615.5,387.1L615.7,388.0L614.5,391.7L614.5,393.6L614.8,395.1L614.0,396.4L613.9,398.7L615.6,400.7L617.6,400.6L618.6,401.4L620.8,402.2L622.2,401.7L624.5,402.3L626.8,401.3L627.9,400.3Z","PRI":"M590.3,215.5L587.2,215.2L587.1,217.0L590.8,217.1L591.9,215.7Z","USA":"M269.6,57.3L274.7,59.2L277.6,58.9L274.0,57.8L272.7,57.0ZM285.8,68.7L284.8,68.7L282.8,70.0L285.7,70.8L287.5,70.3L287.1,68.9ZM326.1,77.6L323.3,78.4L321.9,78.3L320.6,79.3L321.7,80.8L323.4,80.5L326.8,79.3L328.2,78.5L327.3,77.5ZM395.8,84.4L393.6,82.8L391.0,81.9L390.2,81.2L384.2,74.5L380.8,72.5L380.5,71.5L379.2,70.7L376.6,71.4L375.8,73.0L373.2,73.9L372.7,72.7L367.9,69.7L362.4,69.0L362.4,61.8L362.4,52.6L362.4,46.4L362.4,41.3L362.4,36.2L361.1,36.2L355.6,34.6L349.6,35.0L347.7,34.4L341.9,34.2L337.2,33.2L331.2,33.5L329.0,33.4L328.2,32.2L325.1,31.7L322.2,32.2L319.2,31.2L314.3,30.4L310.6,32.0L306.6,31.9L301.5,34.0L298.8,33.8L295.5,35.8L294.9,37.1L291.4,38.7L285.6,38.9L285.1,40.5L291.9,43.4L293.2,44.8L295.4,45.4L298.5,45.3L298.8,46.5L301.9,46.7L303.8,47.5L299.7,48.1L299.0,48.8L293.2,48.7L292.2,48.2L293.0,47.1L290.3,47.0L283.9,48.8L283.0,49.4L279.9,50.2L282.0,51.0L284.2,51.3L283.7,52.2L285.8,54.0L289.6,54.4L293.2,53.9L295.9,54.7L299.1,53.1L300.9,52.8L301.7,54.0L302.1,56.6L301.2,57.5L298.5,57.9L294.3,59.3L291.1,58.7L288.7,61.4L286.0,63.7L287.5,66.1L289.9,66.9L288.2,68.1L290.3,69.0L292.6,70.7L294.7,70.5L297.7,69.4L298.9,71.4L298.3,72.5L299.0,73.1L299.1,74.9L300.4,74.7L303.4,73.3L305.5,73.8L307.3,75.4L309.1,74.0L310.5,74.8L313.2,73.9L313.7,74.4L312.1,75.5L311.8,78.4L309.6,79.5L306.7,81.6L303.6,82.9L301.9,84.8L300.8,83.9L297.9,85.0L295.5,86.9L295.8,87.7L298.2,87.0L299.2,86.1L301.2,86.1L303.1,85.5L304.6,84.7L306.0,84.7L309.7,83.3L309.3,82.5L311.9,81.8L315.2,80.1L315.2,79.3L319.7,76.9L322.0,76.4L322.7,75.3L324.8,74.0L322.4,73.1L322.5,72.2L325.5,70.4L329.6,67.4L329.7,66.8L333.1,65.5L333.6,66.4L330.9,67.4L330.5,69.3L329.7,70.0L329.3,72.1L329.7,72.8L332.0,72.7L333.2,71.5L334.3,71.5L336.7,70.0L339.7,70.0L340.4,69.4L340.0,67.0L344.5,66.5L347.4,68.3L350.5,68.8L353.8,70.0L356.4,69.6L360.3,70.1L362.8,70.9L364.7,70.9L370.4,73.2L372.9,75.0L375.8,76.1L378.0,75.0L379.7,76.1L381.3,75.4L383.5,76.3L385.0,78.0L385.3,79.9L387.3,80.4L390.2,83.4L391.9,84.0L393.0,84.9L393.2,86.2L392.7,86.9L394.1,88.3L395.2,87.4L395.7,86.5L395.4,85.2ZM293.9,87.6L292.7,87.4L290.7,87.9L289.6,88.9L290.9,89.5L292.1,88.8L294.3,88.4ZM392.9,85.8L392.0,84.1L390.9,84.6L390.3,86.7L392.6,86.6ZM385.6,80.5L384.1,80.3L384.9,82.4L386.1,82.4L386.9,80.9ZM380.7,79.3L379.6,78.6L378.2,79.4L380.0,80.4L379.6,81.1L381.8,81.5ZM381.6,76.4L381.7,78.3L382.3,80.3L383.9,79.3L383.9,78.5ZM378.4,76.2L376.0,76.6L377.3,78.2L380.4,78.7L380.6,76.8ZM385.0,82.8L386.0,84.3L385.3,84.7L387.4,87.3L389.8,88.2L389.8,86.8L388.5,85.8L388.5,85.1L386.1,82.9ZM327.6,75.7L326.8,75.4L324.7,76.7L325.9,77.0L328.5,76.4ZM284.3,91.4L283.2,91.1L282.8,92.6L284.9,92.2ZM318.0,213.5L318.8,212.6L320.3,211.7L319.1,210.0L317.2,209.0L317.2,210.0L316.5,210.9L317.0,213.3ZM315.2,206.7L315.3,207.8L316.3,207.8L315.8,206.7ZM311.2,204.9L310.7,204.0L309.8,204.4L310.3,205.4ZM564.2,122.5L562.8,122.9L558.9,125.8L557.8,127.3L552.0,127.3L550.6,127.9L551.0,130.2L547.3,131.7L544.2,132.3L540.7,134.2L539.9,134.1L538.5,133.1L538.8,132.0L540.3,130.8L541.6,127.5L540.3,121.3L537.2,119.6L536.0,118.7L535.3,117.1L534.2,117.4L533.2,115.9L528.5,113.6L522.6,111.0L519.3,112.0L515.1,111.3L513.0,111.8L508.5,109.9L506.4,110.1L503.6,109.4L502.9,107.5L501.9,108.5L497.3,108.5L489.5,108.5L483.0,108.5L476.5,108.5L470.1,108.5L463.6,108.5L458.4,108.5L450.6,108.5L440.2,108.5L432.4,108.5L423.3,108.5L417.8,108.5L419.5,112.0L418.2,112.4L417.6,111.7L414.2,111.4L412.2,110.7L412.2,112.4L413.0,113.2L413.9,116.4L414.3,120.5L413.9,123.3L413.7,127.1L412.5,130.2L413.0,132.6L413.9,135.2L413.7,136.6L413.0,138.3L413.1,139.1L414.5,140.5L415.0,143.8L417.2,146.0L417.3,146.7L418.8,147.6L419.0,149.8L420.8,151.4L420.6,152.8L423.7,156.2L424.4,157.2L424.4,159.0L424.8,159.4L427.5,159.5L428.9,160.6L430.8,160.9L431.1,161.9L432.1,162.0L434.0,163.5L435.0,166.1L442.4,165.5L442.0,166.2L447.8,168.3L453.6,170.4L462.2,170.3L462.2,168.8L467.6,168.8L468.1,169.6L471.1,172.2L472.0,172.7L473.8,176.5L475.1,177.4L477.3,178.5L478.4,177.7L478.9,176.3L480.3,175.5L482.8,175.8L485.2,178.3L486.3,180.8L488.0,182.9L488.7,183.6L488.9,185.4L489.9,187.4L493.0,188.8L495.2,189.5L495.9,189.1L495.1,187.6L494.7,185.6L495.8,182.4L495.8,181.5L497.7,180.7L498.0,179.9L499.8,179.8L501.6,178.6L502.8,177.2L506.4,175.8L508.0,175.8L509.5,176.4L510.8,176.5L511.9,175.6L513.6,176.7L513.7,177.5L515.4,178.0L516.5,177.5L517.3,177.9L518.5,176.3L518.9,175.3L516.4,174.5L516.9,173.7L518.9,174.4L519.7,173.8L521.0,173.5L524.4,174.0L529.0,173.3L531.8,175.4L531.9,176.1L534.8,175.3L535.8,174.7L536.9,175.2L538.1,176.9L540.0,178.9L540.0,180.3L539.5,182.5L540.0,183.0L540.7,185.3L542.4,187.5L542.9,189.1L544.0,189.6L544.8,191.4L545.8,191.9L547.0,191.3L547.7,189.6L548.0,187.0L547.4,184.8L546.1,181.4L546.5,180.3L545.4,178.3L544.3,175.7L543.5,172.0L544.5,169.6L544.4,169.0L545.5,167.6L547.4,166.0L548.0,165.8L550.3,164.0L551.4,162.2L552.4,161.5L554.2,161.3L555.0,160.0L556.8,158.5L558.1,158.5L558.0,157.7L558.7,156.6L559.8,156.3L561.0,155.2L561.0,154.3L558.8,153.9L559.8,153.0L560.6,151.7L560.3,150.8L559.1,149.8L559.5,149.2L559.5,147.4L558.8,145.1L558.7,143.8L559.8,144.0L559.6,145.7L561.3,147.2L561.5,148.3L563.2,145.2L562.1,143.2L563.6,143.0L565.1,142.1L565.8,140.9L566.5,138.8L565.7,137.9L567.6,136.4L569.9,135.6L573.9,135.2L574.2,134.3L576.5,134.6L577.3,134.3L576.3,132.2L575.4,131.8L576.3,130.7L576.0,130.1L578.0,126.8L579.2,126.7L581.4,125.6L581.7,124.5L582.8,124.9L583.8,124.2L584.9,124.4L587.4,122.9L587.3,121.9L586.3,121.5L586.4,120.4L585.3,120.0L585.2,115.2L583.7,114.3L582.1,114.8L580.9,113.9L578.5,116.5L577.6,119.3L575.8,121.6L574.5,121.5L573.9,122.5ZM570.9,136.5L567.7,136.8L567.1,137.9L568.8,137.7Z","SGS":"M678.7,469.2L681.8,472.0L682.7,471.7L681.1,469.9Z","FLK":"M612.5,459.4L611.9,460.9L610.3,461.8L611.8,462.6L613.0,461.8L615.6,461.0L615.2,459.8L613.7,460.3ZM608.1,460.1L608.3,461.2L606.1,462.2L606.9,462.7L609.2,461.9L611.2,460.0Z","TTO":"M605.9,244.5L605.9,242.7L604.6,243.1L604.1,244.8Z","SUR":"M626.8,261.2L627.1,259.7L624.7,259.0L621.7,259.1L621.4,259.7L618.2,259.0L617.6,260.6L617.1,262.4L616.0,262.5L614.9,265.4L615.6,267.1L616.5,268.3L617.2,268.2L617.5,269.9L619.0,272.9L619.7,273.2L621.1,273.6L621.4,272.9L620.8,271.9L621.4,271.2L622.0,271.6L624.2,270.9L625.4,271.8L626.1,271.4L626.7,270.1L626.7,269.0L627.3,267.4L626.2,265.8L625.9,264.3L625.9,262.5Z","WSM":"M267.0,327.1L265.7,327.5L266.3,328.3L267.3,328.3Z","PER":"M578.6,294.8L577.5,293.3L576.3,293.2L578.3,289.6L578.2,289.3L575.8,287.8L574.3,288.2L573.2,287.5L572.5,288.2L571.2,288.5L569.7,288.4L569.0,288.0L568.8,286.4L567.9,285.9L567.4,284.4L565.6,283.4L565.1,282.0L563.9,280.7L562.5,280.4L561.9,280.6L562.5,282.0L561.6,285.4L560.0,287.5L558.2,289.0L554.6,290.4L553.1,292.0L552.9,293.2L551.6,296.3L550.9,297.5L550.1,297.3L549.2,295.6L547.7,295.1L546.6,295.4L546.5,294.2L547.6,293.6L547.1,291.9L545.7,293.1L544.2,295.1L544.0,296.3L544.7,297.6L545.4,300.2L544.5,300.8L545.6,302.0L547.8,303.3L548.8,304.7L550.0,307.4L551.1,308.7L551.9,310.2L553.6,315.3L555.0,317.9L555.3,319.5L556.6,320.8L556.8,322.2L557.8,323.2L559.7,327.3L559.4,329.5L560.5,331.2L561.7,332.2L563.0,333.9L565.9,335.7L566.9,336.5L570.1,338.1L571.0,338.5L572.1,339.5L573.9,340.5L574.5,341.9L577.3,344.2L578.8,343.7L579.0,341.9L580.0,341.3L579.7,340.2L581.5,338.2L581.9,336.9L580.9,336.5L580.3,334.6L581.1,333.3L580.5,332.4L580.9,331.1L582.0,329.7L581.4,327.9L581.7,327.2L581.7,325.1L582.5,323.8L579.8,318.3L578.7,318.3L577.9,318.7L576.6,318.5L576.6,313.2L574.8,314.9L571.9,315.0L571.3,313.3L568.8,312.9L569.5,311.5L567.7,309.2L566.4,306.5L567.1,305.7L567.1,304.2L569.0,302.6L568.7,301.3L569.5,299.7L569.7,297.9L570.3,297.7L572.9,295.8L575.6,295.2L576.1,294.6L577.3,294.5Z","PRY":"M614.6,350.6L614.5,349.4L611.8,347.5L609.0,347.6L603.6,348.8L603.2,350.2L602.1,352.0L602.1,353.7L600.9,357.8L601.8,358.5L603.5,361.1L606.4,363.5L609.3,364.3L610.9,365.6L614.0,367.4L615.6,368.0L616.3,368.9L615.4,371.0L614.5,372.3L614.5,373.2L613.1,375.2L617.8,376.1L619.8,376.4L620.7,375.6L621.8,376.0L622.9,374.5L623.8,374.3L624.7,373.3L625.2,372.1L625.4,369.5L625.8,368.3L626.5,364.2L625.4,363.3L624.3,363.9L623.1,364.0L622.2,359.8L621.6,358.1L620.6,358.0L619.6,357.3L618.3,357.9L615.6,357.5L615.1,357.2L615.6,353.5Z","PAN":"M556.1,249.7L553.9,247.7L552.7,247.1L549.4,246.4L547.7,247.8L546.4,248.2L545.5,248.9L544.0,249.3L542.7,248.6L541.3,248.4L540.9,247.0L540.3,246.5L539.1,246.9L539.2,249.4L539.0,250.7L539.3,251.8L539.9,250.9L542.8,251.5L543.5,253.0L544.9,253.0L545.5,254.7L546.8,254.6L547.9,253.2L546.7,251.7L547.0,251.0L548.9,249.9L549.0,249.0L549.8,248.5L550.9,248.5L552.6,249.8L552.8,250.4L553.9,250.7L552.9,251.8L553.7,253.6L554.5,254.7L555.0,253.6L556.2,253.0L556.6,251.9L556.0,250.5Z","NIC":"M538.5,227.5L537.7,227.5L536.3,228.2L533.9,228.7L532.9,228.4L532.3,229.8L530.5,231.6L529.4,231.0L528.8,231.8L527.6,231.8L527.7,233.4L526.6,234.5L525.7,234.6L524.7,234.8L527.5,237.4L528.4,238.9L530.0,240.3L530.6,241.3L531.0,240.9L533.1,241.7L533.8,241.3L534.9,241.6L535.4,242.3L536.5,242.4L537.0,241.8L536.3,240.5L537.0,239.3L536.6,238.2L537.4,236.6L537.2,233.4L537.7,231.0L538.4,229.8L538.1,228.4Z","CUW":"M582.4,237.8L582.1,237.4L581.6,237.2L581.4,236.8L581.1,237.0L581.6,237.5L582.2,237.8Z","MEX":"M435.0,166.1L435.9,168.0L436.6,168.5L436.5,169.5L438.3,172.2L438.5,173.6L439.0,174.0L439.5,175.8L441.6,177.2L444.1,179.9L444.4,180.5L443.7,182.5L441.6,182.9L442.9,184.0L443.2,184.7L445.1,185.6L445.8,186.5L447.0,186.0L447.6,187.0L449.5,188.3L450.1,189.3L450.5,190.8L450.4,193.1L452.4,194.8L455.7,197.4L456.5,199.5L457.0,199.9L458.4,198.8L458.5,197.8L456.7,195.4L455.1,195.3L454.5,193.9L454.7,193.2L453.6,190.6L452.8,189.7L452.7,188.5L452.0,186.5L450.6,185.6L449.7,183.7L448.4,182.6L448.0,180.5L447.0,179.2L446.1,178.7L445.3,177.2L443.4,175.6L442.6,174.2L442.7,173.2L441.9,170.9L442.0,168.7L444.1,169.7L444.7,169.3L445.7,170.3L447.5,170.9L447.3,172.2L448.4,175.0L450.0,177.6L450.2,178.4L451.6,180.4L452.3,180.7L453.3,182.1L455.1,182.5L454.9,183.2L455.3,184.4L456.9,185.2L457.5,186.5L458.3,186.5L459.2,187.9L458.5,188.9L458.6,189.9L459.7,190.8L461.7,191.8L463.0,193.9L464.3,194.7L466.1,196.4L467.7,198.8L469.6,200.8L470.0,201.8L470.0,203.0L470.7,204.3L471.3,204.8L471.2,206.1L470.5,207.3L471.2,208.0L469.9,208.6L470.5,210.1L472.2,212.4L475.3,214.1L476.7,215.8L479.0,216.8L481.6,217.3L482.3,218.2L484.6,219.8L487.1,220.8L488.1,221.5L491.0,222.1L491.7,223.0L492.9,223.3L494.1,224.1L495.8,224.3L497.8,225.2L498.7,225.1L501.0,224.1L502.7,222.5L503.5,223.3L504.3,223.0L505.7,223.8L509.1,227.0L510.8,229.1L511.3,227.3L511.0,226.4L512.4,223.8L516.3,223.8L516.4,222.6L515.5,221.5L513.4,219.6L514.6,219.6L514.6,217.6L520.2,217.7L521.3,217.1L522.2,215.4L522.8,215.4L523.1,214.5L524.5,215.4L525.5,211.5L525.4,209.7L526.1,208.2L527.2,206.9L527.3,205.0L526.7,204.4L526.0,204.9L523.3,204.3L521.1,205.1L518.2,205.6L516.6,206.5L516.2,208.0L516.1,210.3L515.5,210.9L515.4,212.3L513.6,213.8L513.8,214.8L512.2,215.4L511.7,214.5L509.4,214.9L508.9,215.4L506.8,215.5L504.9,216.3L503.8,216.4L503.0,215.2L501.9,214.5L499.9,214.4L498.5,212.3L498.0,210.5L496.0,207.9L494.4,204.4L493.7,200.8L494.1,199.7L494.0,198.4L494.3,194.6L494.8,192.5L495.7,190.4L495.9,189.1L495.2,189.5L493.0,188.8L489.9,187.4L488.9,185.4L488.7,183.6L488.0,182.9L486.3,180.8L485.2,178.3L482.8,175.8L480.3,175.5L478.9,176.3L478.4,177.7L477.3,178.5L475.1,177.4L473.8,176.5L472.0,172.7L471.1,172.2L468.1,169.6L467.6,168.8L462.2,168.8L462.2,170.3L453.6,170.4L447.8,168.3L442.0,166.2L442.4,165.5Z","JAM":"M556.4,215.4L554.6,215.2L553.5,215.4L554.9,217.4L556.1,217.6L557.7,217.1L558.7,217.5L559.2,216.5L557.5,215.6Z","ISL":"M730.8,57.6L730.8,48.8L729.7,48.9L729.7,50.0L727.1,51.0L726.8,49.4L723.4,47.5L720.1,48.4L718.0,50.8L718.9,51.1L722.0,50.5L724.7,50.8L722.6,52.4L724.9,54.2L725.2,55.3L722.9,56.6L727.0,56.2L730.2,57.5Z","HND":"M538.5,227.5L537.8,226.7L536.7,226.7L535.1,224.6L533.0,224.0L531.4,224.3L530.5,224.0L528.7,224.8L527.1,224.8L524.9,224.3L523.0,224.9L520.8,227.0L520.0,228.0L520.2,228.9L519.6,229.5L520.5,229.8L522.2,231.1L523.3,231.0L524.6,231.7L524.3,233.1L525.3,233.3L525.7,234.6L526.6,234.5L527.7,233.4L527.6,231.8L528.8,231.8L529.4,231.0L530.5,231.6L532.3,229.8L532.9,228.4L533.9,228.7L536.3,228.2L537.7,227.5Z","HTI":"M573.1,211.0L571.8,210.9L570.5,210.3L569.0,210.3L569.3,211.4L570.3,212.0L570.0,213.3L571.4,214.7L570.1,215.5L567.6,215.2L565.7,214.7L565.1,215.8L566.7,216.9L568.2,216.1L569.8,216.5L572.3,216.2L573.2,216.9L573.2,215.8L572.5,214.9L573.3,214.4L573.5,213.0Z","GUY":"M606.7,261.8L608.6,261.7L609.0,262.2L608.7,264.2L609.5,264.3L610.4,266.2L609.5,267.4L609.5,268.3L609.0,270.6L609.7,272.1L609.7,273.3L611.3,275.2L612.5,275.8L613.5,275.5L614.1,274.4L616.3,274.1L617.8,273.0L618.6,273.4L619.7,273.2L619.0,272.9L617.5,269.9L617.2,268.2L616.5,268.3L615.6,267.1L614.9,265.4L616.0,262.5L617.1,262.4L617.6,260.6L617.6,258.7L615.2,256.2L613.6,255.4L613.2,253.6L611.4,251.8L608.9,250.1L609.5,250.9L608.9,251.8L607.4,252.7L606.8,253.8L607.8,255.7L606.8,256.3L605.5,256.6L605.6,258.3L604.8,259.3Z","GTM":"M510.8,229.1L512.1,230.2L514.1,231.2L515.8,231.2L517.3,231.9L518.0,230.8L519.6,229.5L520.2,228.9L520.0,228.0L520.8,227.0L523.0,224.9L521.0,224.4L520.0,224.4L520.2,217.7L514.6,217.6L514.6,219.6L513.4,219.6L515.5,221.5L516.4,222.6L516.3,223.8L512.4,223.8L511.0,226.4L511.3,227.3Z","FRA":"M625.4,271.8L626.9,272.6L628.0,271.8L630.4,272.4L631.2,271.7L633.4,267.1L634.4,265.8L633.6,264.2L632.5,262.7L630.6,261.0L628.9,260.5L627.7,259.8L626.8,261.2L625.9,262.5L625.9,264.3L626.2,265.8L627.3,267.4L626.7,269.0L626.7,270.1L626.1,271.4Z","MAF":"M599.8,216.8L599.7,216.6L599.5,216.8Z","PYF":"M337.0,341.9L336.8,341.3L336.1,341.4L336.2,342.1Z","SLV":"M519.6,229.5L518.0,230.8L517.3,231.9L518.3,232.5L519.8,232.8L522.2,233.9L524.0,233.9L524.3,233.1L524.6,231.7L523.3,231.0L522.2,231.1L520.5,229.8Z","ECU":"M562.5,280.4L560.6,279.5L559.3,278.4L558.8,279.2L557.5,279.1L556.0,278.5L555.8,277.8L553.2,276.3L551.6,274.9L551.4,275.8L548.9,276.6L547.8,277.3L548.0,278.6L547.7,280.0L546.6,281.3L546.4,283.0L545.4,283.8L545.7,284.8L545.8,287.3L545.2,287.7L546.7,289.2L547.7,288.9L548.9,289.0L548.3,290.8L547.1,291.9L547.6,293.6L546.5,294.2L546.6,295.4L547.7,295.1L549.2,295.6L550.1,297.3L550.9,297.5L551.6,296.3L552.9,293.2L553.1,292.0L554.6,290.4L558.2,289.0L560.0,287.5L561.6,285.4L562.5,282.0L561.9,280.6ZM513.8,279.9L513.5,281.0L514.2,282.2L513.2,282.8L513.5,283.6L514.9,283.3L515.2,282.6Z","DOM":"M573.2,216.9L574.3,218.2L575.4,216.1L576.6,215.8L578.0,216.1L579.3,215.5L581.8,215.6L582.6,216.2L583.5,215.1L582.6,213.8L580.6,212.8L579.3,212.5L578.7,211.2L578.2,211.3L575.7,210.3L573.8,210.3L573.1,211.0L573.5,213.0L573.3,214.4L572.5,214.9L573.2,215.8Z","DMA":"M605.1,226.6L605.0,225.4L604.5,225.6Z","GRL":"M730.8,0.4L730.8,0.0L594.4,0.0L592.5,2.3L590.8,3.0L586.2,3.1L581.6,4.0L571.2,5.2L570.0,6.3L573.5,7.3L580.5,8.9L588.6,8.1L589.4,9.1L584.2,9.2L581.7,9.8L575.9,9.9L576.1,11.0L580.8,11.6L580.5,12.8L584.2,13.8L588.2,14.1L598.5,12.8L605.4,13.4L613.5,15.1L613.3,16.1L618.7,18.7L619.0,20.2L621.4,21.3L620.9,22.5L623.3,23.6L622.2,24.5L625.0,25.0L624.9,25.8L622.4,26.4L623.3,27.6L622.4,29.6L625.2,30.2L628.9,29.3L629.9,30.4L636.0,31.6L634.8,33.5L632.1,32.6L626.8,32.1L627.2,33.5L630.3,34.0L632.6,34.8L637.9,35.2L636.2,37.8L635.6,39.4L630.2,39.9L629.9,41.3L628.5,42.6L629.0,43.5L627.6,45.0L630.2,46.1L628.4,47.6L628.5,48.5L630.0,49.1L632.6,52.0L633.1,54.5L635.0,56.4L635.0,57.3L638.4,60.1L638.5,61.4L640.8,62.2L641.6,64.4L642.7,65.5L646.1,67.1L649.0,67.1L651.6,66.1L651.5,67.8L652.9,68.2L653.5,69.3L657.5,70.3L659.8,70.2L660.3,68.8L661.6,67.3L662.5,64.6L663.5,63.5L662.8,62.5L663.4,61.0L666.5,58.6L666.7,57.7L668.2,56.9L667.5,55.2L669.4,54.3L667.9,52.8L671.2,51.3L670.0,50.5L676.8,50.4L680.9,49.6L686.3,47.5L687.9,46.4L690.7,43.3L693.4,42.3L693.8,40.7L697.4,41.8L700.7,40.9L702.6,41.0L711.5,39.5L713.9,38.3L719.5,36.3L721.4,35.4L721.1,34.6L714.0,33.8L712.0,34.1L710.2,33.3L706.4,33.6L704.8,33.3L707.4,31.5L710.3,31.7L713.3,30.9L713.6,29.6L717.5,31.0L719.3,33.0L720.7,33.4L726.2,33.1L725.5,29.8L724.7,29.1L716.6,26.5L718.4,26.2L723.8,27.6L724.6,24.8L724.1,23.6L729.2,22.8L729.7,21.5L727.4,20.6L730.8,20.2L730.8,17.5L729.3,16.4L730.8,16.5L730.8,13.5L730.5,13.2L726.0,13.0L725.1,12.0L727.9,10.9L730.8,11.1L730.8,9.3L730.1,9.2L728.2,7.3L727.9,5.0L730.8,4.0L730.8,0.8L730.4,0.7ZM631.1,35.2L629.2,34.2L626.1,33.9L624.7,34.4L624.8,36.3L627.9,36.7L628.5,37.6L633.0,36.8L633.2,35.7ZM714.3,31.8L713.1,31.4L709.5,32.0L707.3,31.8L706.7,33.4L714.4,32.7Z","CUB":"M542.5,198.9L541.7,198.8L538.2,199.6L535.8,200.7L534.8,201.7L534.9,202.8L535.8,203.2L536.2,202.4L537.8,202.2L539.8,200.6L542.3,200.6L542.6,202.3L545.2,202.8L546.6,202.8L547.4,203.5L550.3,204.5L551.7,204.3L552.2,204.7L552.7,206.3L554.2,207.5L556.5,207.8L556.6,209.0L555.0,210.5L559.8,210.0L561.7,210.4L563.0,210.3L564.5,209.8L565.6,209.7L563.7,207.7L561.4,207.4L561.1,206.1L558.3,205.5L555.7,203.5L554.6,203.3L552.1,201.7L550.3,201.6L549.1,200.4L547.9,199.7L546.1,199.2L544.5,199.3ZM540.3,204.5L539.8,203.4L538.7,203.7L539.4,205.0Z","CRI":"M540.3,246.5L539.6,246.2L537.6,243.4L537.0,241.8L536.5,242.4L535.4,242.3L534.9,241.6L533.8,241.3L533.1,241.7L531.0,240.9L530.6,241.3L530.8,242.4L530.3,243.6L531.0,245.3L531.9,245.7L532.5,246.5L533.8,245.3L533.9,246.2L536.2,247.5L537.0,248.4L536.7,249.9L538.5,249.9L538.6,250.8L539.3,251.8L539.0,250.7L539.2,249.4L539.1,246.9Z","COL":"M574.5,238.5L575.1,237.8L574.7,236.8L573.3,236.5L572.0,237.3L571.6,238.4L570.3,239.0L568.5,240.5L566.2,240.3L565.0,241.5L563.8,241.1L562.0,242.9L561.3,244.3L561.5,245.0L561.4,246.9L559.9,247.6L559.4,248.5L557.6,249.8L557.9,250.9L557.7,251.7L556.1,249.7L556.0,250.5L556.6,251.9L556.2,253.0L555.0,253.6L554.5,254.7L556.1,257.2L555.8,258.4L556.5,259.8L556.0,261.0L556.4,263.5L555.9,265.8L556.7,266.5L556.5,267.4L555.2,269.9L553.8,271.3L552.3,271.9L552.4,273.8L551.8,273.5L551.1,274.3L551.6,274.9L553.2,276.3L555.8,277.8L556.0,278.5L557.5,279.1L558.8,279.2L559.3,278.4L560.6,279.5L562.5,280.4L563.9,280.7L565.1,282.0L565.6,283.4L567.4,284.4L567.9,285.9L568.8,286.4L569.0,288.0L569.7,288.4L571.2,288.5L572.5,288.2L573.2,287.5L574.3,288.2L575.8,287.8L578.2,289.3L578.3,289.6L576.3,293.2L577.5,293.3L578.6,294.8L579.6,289.3L580.4,284.2L579.6,281.7L578.3,280.5L578.4,278.0L581.1,277.0L580.5,276.3L579.0,276.3L579.0,274.0L584.1,274.0L585.2,273.7L586.2,272.6L586.6,272.7L587.4,274.3L587.4,275.8L588.1,275.7L587.0,271.6L585.2,269.9L586.7,268.0L585.7,266.5L585.1,264.2L585.2,261.6L586.3,258.9L585.9,258.2L585.1,258.0L583.2,258.4L580.3,258.5L578.2,255.7L576.5,255.2L575.5,255.5L572.2,255.2L571.8,254.2L571.1,253.9L571.2,250.7L570.4,249.8L570.0,248.1L569.2,247.6L568.3,247.7L569.4,245.7L569.8,243.3L570.4,242.1L571.7,240.8L572.6,239.2Z","CHL":"M577.3,344.2L578.1,349.3L577.9,352.6L578.3,355.2L577.5,360.0L576.8,360.7L576.8,361.8L577.4,362.5L577.1,363.2L576.8,366.2L577.2,368.1L576.4,370.2L576.6,372.2L575.4,377.1L574.9,379.3L573.9,381.3L574.5,383.8L574.3,385.5L573.5,386.2L573.5,389.1L573.9,391.3L574.1,394.3L573.3,395.8L573.5,397.8L572.5,399.6L571.8,402.8L570.6,404.6L569.8,407.4L569.0,408.4L568.7,410.1L567.6,410.2L567.4,411.9L568.0,413.1L567.8,414.3L568.7,417.3L568.2,419.3L567.4,420.3L566.5,423.9L566.9,425.3L567.8,426.3L569.4,425.4L570.4,425.8L570.9,426.9L570.1,428.1L569.8,430.7L569.1,432.1L569.4,432.7L568.6,434.6L570.5,435.5L570.2,436.6L568.3,437.4L567.7,439.2L566.2,439.0L565.9,440.2L563.1,440.5L563.6,441.6L561.3,443.1L565.9,444.4L565.9,445.1L564.4,446.9L564.6,448.9L565.3,450.1L565.4,454.9L563.1,457.4L563.9,458.7L566.7,459.7L566.5,461.2L567.8,462.1L566.9,462.8L566.3,464.2L569.3,466.3L571.1,466.4L574.3,464.7L574.3,465.9L572.9,466.5L571.5,466.4L571.9,467.7L574.6,468.6L575.5,468.2L576.1,464.7L579.9,463.5L580.9,462.7L583.3,463.3L581.0,462.5L578.7,462.0L572.7,462.0L571.2,460.4L571.6,458.2L570.9,457.1L569.0,457.6L567.9,455.5L567.6,453.5L569.0,452.6L569.5,451.4L570.6,450.8L571.4,449.3L570.9,447.6L571.4,446.2L572.8,445.2L572.6,443.9L573.4,443.0L572.8,441.6L573.6,440.8L573.2,440.0L574.4,438.3L573.7,437.4L574.7,436.7L574.9,435.5L573.0,435.3L573.4,433.8L572.8,432.0L573.1,431.1L572.0,430.5L572.1,428.1L573.2,427.3L572.7,425.8L572.7,422.4L573.4,421.2L573.3,418.7L573.9,418.6L574.2,416.5L575.7,415.6L575.4,413.1L575.0,412.2L575.1,409.9L574.9,408.9L575.3,407.8L577.3,406.2L577.1,403.7L577.7,401.6L578.4,400.1L579.0,399.8L578.9,398.1L579.2,396.9L578.5,396.4L578.0,393.6L576.8,390.5L577.0,389.0L578.1,386.5L578.7,386.3L578.8,384.2L578.5,382.6L579.1,381.8L579.6,379.4L581.1,377.7L582.1,375.0L583.6,374.6L582.9,372.8L583.4,371.5L582.8,369.2L583.5,367.8L582.9,366.9L583.9,365.4L586.6,364.1L587.7,360.5L587.1,359.9L585.0,359.9L584.7,357.2L584.1,355.7L584.0,354.6L582.4,351.6L582.5,349.0L583.2,348.0L581.7,346.4L581.3,343.2L580.7,342.8L580.0,341.3L579.0,341.9L578.8,343.7ZM582.7,464.3L579.3,464.6L577.4,465.6L578.3,467.0L579.6,466.7L580.5,467.2L578.1,468.2L576.9,467.7L575.9,468.6L575.8,470.2L574.2,471.2L577.0,471.8L579.4,471.5L580.1,472.0L582.7,472.0ZM587.4,473.0L586.9,472.4L584.3,472.3L584.4,473.3ZM567.1,431.7L568.1,430.3L567.0,429.1L568.0,428.6L567.8,426.7L566.2,426.3L565.9,427.8L565.7,430.1L565.3,431.4ZM564.9,452.0L564.6,450.6L564.0,450.5L562.8,451.8L562.4,454.5L564.6,455.0ZM561.8,450.7L562.8,450.2L562.1,448.1L561.3,450.1ZM564.6,450.1L564.1,448.5L562.7,448.5L563.6,450.2ZM569.7,467.2L567.3,467.0L568.5,468.8L571.8,468.3ZM563.9,460.7L563.0,461.3L563.8,462.9L564.8,462.0ZM579.5,472.2L578.6,473.0L580.3,474.0L583.8,474.3L583.8,473.4L581.9,472.6ZM574.3,469.1L572.5,468.6L572.6,469.7ZM567.2,435.4L564.8,435.6L564.5,436.3L566.1,438.7L567.2,437.9L566.4,435.7ZM569.4,436.7L570.1,435.9L568.8,435.2L568.0,436.2Z","CPV":"M720.3,227.5L719.5,226.6L719.5,227.6Z","CAN":"M395.8,84.4L395.6,85.3L396.2,86.9L394.5,89.5L395.7,90.5L394.8,92.0L397.2,93.6L398.0,93.1L400.0,93.7L400.6,94.9L401.6,95.0L400.8,97.4L401.6,98.7L403.0,99.8L402.8,101.0L404.8,102.0L406.8,102.2L406.8,103.1L410.9,103.5L411.7,104.9L413.7,105.7L414.5,106.8L416.1,106.9L417.0,108.5L417.8,108.5L423.3,108.5L432.4,108.5L440.2,108.5L450.6,108.5L458.4,108.5L463.6,108.5L470.1,108.5L476.5,108.5L483.0,108.5L489.5,108.5L497.3,108.5L501.9,108.5L502.9,107.5L503.6,109.4L506.4,110.1L508.5,109.9L513.0,111.8L515.1,111.3L519.3,112.0L522.6,111.0L528.5,113.6L533.2,115.9L534.2,117.4L535.3,117.1L536.0,118.7L537.2,119.6L540.3,121.3L541.6,127.5L540.3,130.8L538.8,132.0L538.5,133.1L539.9,134.1L540.7,134.2L544.2,132.3L547.3,131.7L551.0,130.2L550.6,127.9L552.0,127.3L557.8,127.3L558.9,125.8L562.8,122.9L564.2,122.5L566.5,121.3L566.2,120.8L568.0,119.9L569.5,118.3L572.8,116.6L574.7,116.2L576.4,115.0L578.8,112.6L579.2,111.6L581.8,109.1L583.8,107.8L586.6,107.3L587.9,105.0L589.2,104.3L593.0,103.9L594.2,104.0L600.7,104.0L605.1,104.3L608.8,104.1L611.5,102.3L613.5,100.5L615.8,100.0L618.2,99.9L622.1,97.5L621.7,96.9L621.8,93.8L620.8,92.4L619.8,91.8L617.7,91.5L616.9,90.4L614.6,89.8L616.9,89.0L614.5,88.0L612.7,88.1L612.0,87.0L609.2,86.6L606.5,84.1L605.7,84.5L604.4,82.6L605.0,80.5L603.4,79.2L603.2,77.5L602.0,77.1L601.1,75.4L599.3,74.0L598.2,72.3L595.3,69.1L594.0,69.1L592.5,70.8L591.9,73.1L588.9,75.1L585.9,76.3L583.6,74.9L582.5,73.9L581.1,73.9L579.5,72.3L579.7,70.6L579.3,68.6L579.6,67.6L577.7,66.3L574.2,65.9L572.2,63.9L567.5,61.4L564.3,62.4L560.8,61.9L556.1,61.0L554.0,61.7L553.8,62.6L555.0,65.0L554.6,67.2L556.3,69.9L555.0,71.1L554.9,72.2L552.9,73.9L552.6,74.6L556.7,76.9L558.5,79.9L558.7,81.5L558.3,83.6L556.3,85.5L554.5,86.7L551.4,87.9L549.1,88.5L550.4,90.6L552.0,95.8L552.7,97.1L551.2,98.9L549.6,99.5L548.6,100.9L547.0,100.3L546.1,98.8L543.0,97.0L543.2,96.5L541.2,94.6L541.6,91.6L540.7,89.7L541.3,88.2L540.2,87.0L536.2,86.4L532.7,86.5L530.8,85.4L525.1,83.8L523.5,82.4L520.8,81.0L518.3,80.6L515.9,79.7L514.3,79.7L510.8,80.5L507.7,74.3L504.6,74.5L503.3,73.9L503.1,70.2L503.5,68.5L505.3,66.0L505.3,65.4L507.2,64.0L510.5,60.1L513.2,60.2L515.0,59.7L515.4,58.3L513.6,57.7L517.6,56.7L517.2,56.1L521.8,56.0L523.4,55.4L525.9,53.1L526.7,51.8L520.8,51.3L517.3,49.4L518.4,49.2L523.8,51.3L525.9,51.3L529.7,48.9L527.9,47.1L531.5,47.1L534.5,48.4L540.1,46.9L543.6,45.3L544.2,43.9L542.1,42.5L540.3,40.4L544.2,39.7L544.1,38.1L540.1,36.9L540.1,36.1L536.9,36.0L535.2,35.6L531.3,35.5L531.7,37.7L533.3,38.3L530.7,39.8L530.0,41.8L528.2,43.7L526.0,44.9L523.1,42.8L522.7,41.0L524.3,40.6L523.6,39.2L520.5,37.6L518.7,38.5L518.0,40.2L515.9,40.4L516.2,39.0L515.2,37.5L516.0,36.8L511.8,36.6L509.3,36.0L512.9,34.4L508.6,32.0L508.7,30.6L504.5,28.8L501.8,28.3L498.1,30.6L497.7,32.2L498.7,33.1L497.7,33.8L499.0,35.5L504.6,36.9L506.4,38.9L506.5,40.1L503.2,41.8L501.0,41.9L500.4,42.9L501.6,44.6L500.0,44.8L498.3,43.6L499.3,41.4L496.4,41.1L495.5,40.4L492.6,40.9L492.0,41.8L495.7,42.5L495.0,43.3L492.0,42.6L489.8,43.0L485.8,42.6L482.5,43.1L479.0,42.7L476.6,41.6L474.4,41.9L470.7,40.4L470.3,39.5L468.4,38.8L461.9,39.9L460.7,41.0L462.0,41.5L462.9,42.9L465.4,45.9L461.4,45.3L462.9,44.6L461.0,43.4L457.9,42.9L456.6,42.1L453.7,42.7L449.3,43.1L444.9,43.0L440.2,42.3L442.2,41.1L444.7,40.6L443.3,39.7L439.6,38.6L438.3,39.0L432.1,38.4L429.7,37.6L425.4,37.0L423.4,36.2L420.0,35.6L417.1,35.7L415.3,37.2L411.8,35.0L410.0,36.3L407.8,36.9L406.2,35.9L404.6,34.2L402.7,34.2L399.0,36.0L396.9,35.0L394.3,34.5L390.0,35.9L387.2,36.2L386.2,37.0L380.2,36.9L378.5,37.4L377.9,38.8L375.4,38.9L371.1,38.0L367.9,36.7L362.4,36.2L362.4,41.3L362.4,46.4L362.4,52.6L362.4,61.8L362.4,69.0L367.9,69.7L372.7,72.7L373.2,73.9L375.8,73.0L376.6,71.4L379.2,70.7L380.5,71.5L380.8,72.5L384.2,74.5L390.2,81.2L391.0,81.9L393.6,82.8ZM587.3,121.9L588.1,122.3L591.1,121.7L594.1,120.3L595.4,121.6L591.8,123.3L590.4,124.7L590.3,126.7L591.5,127.5L594.2,126.5L595.7,125.0L595.9,124.1L597.6,124.3L601.4,123.1L605.1,121.7L604.5,120.1L603.0,119.5L601.4,120.3L600.8,119.9L599.0,119.9L595.2,118.2L594.0,115.9L592.8,115.1L594.0,114.2L594.7,113.0L593.1,112.7L591.7,113.0L590.9,111.3L593.0,111.9L596.1,110.1L596.0,108.8L594.3,107.8L592.2,107.6L590.2,107.8L586.0,109.0L581.6,111.0L577.0,115.4L574.7,116.3L572.8,116.8L568.9,119.0L567.7,121.0L564.2,122.5L573.9,122.5L574.5,121.5L575.8,121.6L577.6,119.3L578.5,116.5L580.9,113.9L582.1,114.8L583.7,114.3L585.2,115.2L585.3,120.0L586.4,120.4L586.3,121.5ZM387.8,90.5L386.5,90.5L386.6,91.8L387.5,93.4L389.7,93.6L390.7,91.0ZM390.5,93.8L388.7,94.0L389.2,95.3L390.6,95.3ZM404.4,102.8L402.2,102.0L401.1,102.9L402.2,103.4L402.4,104.5L403.6,104.4L404.7,105.4L406.0,105.4L406.4,107.0L408.5,107.5L408.5,108.2L412.0,109.9L415.4,110.8L415.6,110.0L414.1,107.7L412.2,107.0L409.6,103.9ZM457.3,4.7L455.5,4.3L447.2,5.6L458.6,5.8ZM455.3,6.7L446.9,7.3L447.1,8.6L450.8,9.3L456.1,8.7L457.5,7.1ZM439.9,9.2L437.4,8.6L434.2,9.4L429.1,9.4L421.4,12.5L417.9,13.2L420.5,13.9L426.6,14.5L428.2,13.2L437.8,11.9ZM462.0,13.8L460.9,11.9L458.8,11.3L455.9,12.5L458.3,13.5L457.4,14.5L459.5,15.7L453.6,15.6L448.5,13.3L445.1,13.3L444.0,12.4L439.8,12.5L436.6,13.8L433.6,16.6L439.3,17.6L443.2,17.2L446.1,19.5L449.1,19.5L453.9,18.8L460.3,17.3L465.4,17.7L469.4,16.8L470.5,14.9L467.7,13.8L465.5,14.4ZM443.0,25.9L444.4,24.3L442.6,23.2L436.7,24.3L431.3,26.1L431.8,27.1L429.5,28.0L429.7,29.1L433.0,30.9L431.6,31.9L433.6,32.8L438.5,32.9L445.3,32.6L450.3,33.4L448.7,34.2L442.8,33.9L435.0,34.7L435.1,35.7L436.9,37.0L441.0,37.6L445.5,37.8L445.7,39.1L447.2,40.3L452.8,40.1L459.9,39.3L464.5,38.5L466.9,37.0L468.5,37.9L471.9,38.2L476.6,39.2L481.5,38.4L481.2,37.1L479.2,36.6L480.6,35.5L484.3,36.0L483.7,34.5L477.8,33.2L475.2,32.3L473.3,31.2L474.0,30.0L471.3,26.5L470.7,25.2L467.5,23.8L463.7,23.3L462.1,24.1L463.8,27.5L464.9,28.4L462.2,28.9L460.7,26.2L456.7,24.6L456.1,25.7L452.9,25.5L448.4,24.5L446.1,25.6ZM427.1,20.6L422.3,19.1L412.0,19.8L414.7,21.8L411.6,24.2L411.1,25.9L408.8,27.5L414.1,29.1L416.5,31.1L424.4,29.7L425.8,27.3L428.1,26.7L429.5,25.6L440.2,23.0L440.0,22.3L434.8,20.4L432.5,20.1ZM575.7,0.0L528.7,0.0L528.6,0.5L532.6,1.4L535.3,2.7L534.9,3.6L527.4,4.3L525.1,6.4L526.7,7.4L523.5,8.0L527.2,9.8L522.5,10.2L519.2,11.1L519.0,12.3L532.4,13.0L536.3,12.4L544.5,12.2L546.0,13.4L553.3,12.0L553.3,10.6L550.1,9.9L553.9,8.7L554.2,7.2L560.7,7.0L565.1,4.5L559.5,3.5L563.1,2.8L562.5,2.0L574.3,0.8ZM501.0,7.7L499.4,8.8L506.9,8.9L507.6,7.9ZM506.9,17.4L504.2,15.4L500.4,15.6L497.6,17.2L498.6,17.8L503.3,18.8L506.8,18.6ZM487.2,21.2L484.4,21.7L482.8,23.0L486.3,24.1L485.7,25.3L483.1,25.4L481.4,24.3L478.9,25.3L482.0,26.9L485.4,27.5L489.7,30.2L491.3,30.5L497.5,28.6L496.2,25.8L493.9,23.5L496.3,22.2L494.6,21.4L489.8,21.9ZM533.1,51.6L532.1,49.7L530.0,50.0L528.7,54.0L529.1,55.5L526.2,57.2L530.7,57.2L531.4,59.0L534.0,58.4L536.7,56.7L537.5,55.7L540.6,56.2L540.9,57.0L544.9,57.9L547.2,56.8L545.6,55.7L542.9,55.9L541.9,53.8L540.0,53.3L537.7,52.2ZM494.2,12.4L490.2,11.9L486.0,11.9L480.7,13.0L482.8,14.0L479.5,15.7L485.0,16.1L486.5,17.5L491.6,17.5L493.9,17.1L495.1,15.6ZM476.8,2.4L470.8,2.4L470.3,3.4L476.5,4.3L474.0,6.1L478.9,5.7L483.9,6.3L485.4,7.4L489.7,7.5L488.0,6.0L488.4,5.0ZM525.6,0.0L497.5,0.0L498.0,0.5L501.5,1.2L502.1,2.5L509.5,5.6L515.8,6.5L521.3,6.3L526.7,3.8L532.0,2.8L531.4,1.6L526.4,1.2ZM504.6,10.8L500.5,10.3L497.1,10.6L497.4,11.5L501.6,13.1L508.2,12.8L511.0,14.5L510.3,16.3L511.7,18.2L518.1,19.1L522.5,19.3L534.6,19.2L537.4,18.9L542.6,19.3L547.2,19.0L549.6,17.9L549.1,15.9L547.1,15.3L541.6,14.6L536.1,14.6L529.6,15.8L526.0,15.3L523.1,15.7L516.9,13.8L519.8,13.0L515.1,12.5L513.7,11.6L509.4,11.9ZM498.8,5.1L492.7,4.2L492.5,5.5L496.4,7.7L502.2,7.0L502.8,5.8ZM508.0,20.4L502.3,20.9L500.5,22.0L500.8,25.3L501.8,27.9L505.3,27.9L507.5,25.2L511.2,25.4L516.6,21.5L514.3,21.0L510.9,21.1ZM495.0,36.3L493.9,35.5L491.6,36.6L491.9,37.3L488.5,38.4L489.5,39.0L494.9,40.1L498.2,40.4L500.3,39.4L498.5,37.3ZM605.6,119.2L607.2,118.4L608.0,116.3L606.4,116.2L604.4,119.2L605.1,120.5L607.8,120.2L608.9,119.4L609.4,118.4L607.5,118.3L607.6,119.2L606.5,119.9ZM622.8,99.6L621.1,99.5L618.9,100.6L617.2,102.5L615.0,106.6L614.5,107.1L612.9,109.9L612.9,110.8L610.9,112.5L611.7,113.5L614.1,113.1L618.3,113.5L620.5,113.2L621.6,113.6L623.6,113.9L621.8,116.0L623.3,115.8L624.7,114.1L626.0,113.9L627.3,112.8L627.7,114.1L626.8,115.9L628.5,115.6L628.4,116.6L630.1,116.6L631.4,113.6L629.8,113.2L630.5,111.9L628.2,112.3L628.7,111.2L630.3,110.0L627.9,110.1L627.7,109.2L628.6,108.0L627.4,107.0L625.5,106.8L624.1,107.4L621.5,106.5L621.9,105.1L620.4,104.7L619.1,104.8L621.6,101.8L621.7,100.8ZM528.0,31.5L532.8,30.3L529.7,28.8L527.9,25.0L529.6,23.6L533.0,22.1L527.5,21.6L524.6,22.0L519.9,24.3L518.1,26.6L517.6,28.2L518.1,29.8L520.5,30.5L524.1,30.8L524.2,31.7L519.6,31.3L521.2,33.2L524.0,34.1L527.9,33.6L528.9,34.5L536.3,35.1L538.7,35.0L541.6,35.6L544.8,34.7L549.3,35.4L551.7,34.4L549.9,33.5L550.9,32.9L556.8,36.2L560.9,37.4L559.1,39.6L563.6,38.6L564.4,39.5L568.4,41.1L571.8,44.6L568.6,46.7L565.1,48.5L567.7,50.6L560.8,51.7L556.2,50.9L555.9,51.9L553.9,52.7L553.7,53.8L554.8,54.7L558.1,55.2L563.1,54.4L564.8,53.7L568.1,54.5L571.8,57.0L572.6,58.0L574.7,59.4L577.8,60.3L579.9,60.4L581.4,61.6L583.5,62.2L586.3,62.5L589.9,63.5L589.9,62.0L585.6,59.2L584.2,58.9L581.9,57.0L583.1,56.9L585.1,57.9L588.8,59.2L590.8,59.5L593.0,60.5L593.6,58.6L595.3,58.6L594.7,55.9L593.7,56.0L593.0,53.8L588.1,52.2L586.8,50.8L583.8,49.2L587.1,48.9L586.7,48.0L589.3,48.0L592.8,49.0L592.6,49.8L594.8,51.9L598.6,52.1L598.8,50.6L600.9,50.3L602.9,48.9L603.3,47.9L605.0,46.7L603.0,45.4L601.8,45.8L599.1,45.4L599.7,44.7L596.8,44.3L595.2,42.7L590.0,42.1L587.6,40.8L584.5,40.1L585.4,38.4L588.4,37.3L583.1,36.5L584.3,35.9L586.9,36.0L586.6,34.9L581.1,32.3L576.8,32.4L576.1,31.2L574.1,29.9L565.4,28.6L562.7,26.5L557.6,25.5L554.2,25.6L551.1,27.1L545.2,27.3L547.3,25.4L543.8,22.3L540.0,21.9L532.8,23.3L530.9,25.3L531.8,26.5L530.1,28.0L533.9,29.4L533.5,31.2L530.9,31.0ZM603.5,108.2L603.5,107.5L600.3,106.0L596.4,105.2L598.1,107.1L599.7,107.7L602.2,108.2ZM597.4,117.4L597.9,118.2L600.2,119.0L602.4,117.3L599.5,117.5ZM542.0,59.7L537.8,59.9L536.2,61.3L536.8,62.4L538.9,62.3L541.7,60.7ZM549.5,61.6L547.4,62.5L547.2,63.5L549.0,64.4L550.2,62.9ZM561.3,40.9L558.0,41.2L556.3,43.0L557.2,44.6L560.9,44.5L562.9,43.6L562.9,41.2ZM549.5,22.2L545.5,22.0L545.6,23.2L547.6,23.7L549.6,25.3L554.7,24.8L559.1,25.1L559.4,24.2L556.6,22.8L553.3,22.2ZM545.9,95.4L544.6,93.8L542.5,93.8L542.5,94.6ZM551.3,83.1L549.3,83.2L548.1,84.2L550.6,84.4ZM471.1,24.8L473.3,23.3L473.0,22.4L470.4,21.8L467.1,22.0L466.1,22.8ZM480.4,14.0L479.3,13.0L474.0,13.4L477.1,14.8ZM567.5,42.8L568.1,42.1L565.2,41.7L564.6,42.6Z","BRA":"M588.1,275.7L587.4,275.8L587.4,274.3L586.6,272.7L586.2,272.6L585.2,273.7L584.1,274.0L579.0,274.0L579.0,276.3L580.5,276.3L581.1,277.0L578.4,278.0L578.3,280.5L579.6,281.7L580.4,284.2L579.6,289.3L578.6,294.8L577.3,294.5L576.1,294.6L575.6,295.2L572.9,295.8L570.3,297.7L569.7,297.9L569.5,299.7L568.7,301.3L569.0,302.6L567.1,304.2L567.1,305.7L566.4,306.5L567.7,309.2L569.5,311.5L568.8,312.9L571.3,313.3L571.9,315.0L574.8,314.9L576.6,313.2L576.6,318.5L577.9,318.7L578.7,318.3L579.8,318.3L583.4,318.6L584.4,317.4L585.5,317.4L585.9,316.8L587.4,315.9L588.5,314.9L589.9,314.4L592.6,314.0L592.8,315.9L592.4,316.6L592.8,318.1L592.6,319.4L593.8,321.9L595.3,322.9L595.5,323.5L598.1,323.8L599.7,324.3L600.6,325.5L602.4,326.0L603.5,327.4L605.7,327.2L607.4,328.3L607.6,329.6L608.1,331.2L608.5,336.9L613.4,337.2L613.9,340.3L615.6,341.3L616.4,344.0L615.7,346.8L614.7,349.1L615.5,349.9L614.6,350.6L615.6,353.5L615.1,357.2L615.6,357.5L618.3,357.9L619.6,357.3L620.6,358.0L621.6,358.1L622.2,359.8L623.1,364.0L624.3,363.9L625.4,363.3L626.5,364.2L625.8,368.3L625.4,369.5L626.8,369.3L627.6,369.8L628.3,371.8L627.8,374.9L626.3,376.0L624.7,376.4L623.9,377.5L622.0,378.7L620.2,381.0L618.3,383.6L616.3,385.7L617.5,386.0L618.7,385.4L620.6,387.2L621.6,388.7L622.5,388.1L623.5,389.3L625.5,390.2L626.6,391.5L628.0,392.2L628.5,393.4L629.9,394.6L628.7,396.1L628.7,397.7L629.2,398.1L631.4,396.0L632.3,393.5L633.0,392.6L632.8,391.6L633.5,389.8L635.0,388.7L635.9,386.3L637.3,386.5L637.3,387.4L635.9,388.9L635.9,390.2L637.6,388.2L638.5,386.5L639.4,384.3L640.2,382.8L641.7,381.0L643.1,380.0L643.7,378.3L643.6,376.5L643.9,375.2L643.5,373.4L643.9,370.4L645.9,367.5L648.2,365.7L649.0,364.8L651.7,363.3L653.4,362.9L654.8,361.8L655.7,361.7L655.8,360.7L658.1,360.2L659.2,360.7L660.9,360.4L663.7,360.3L663.9,359.0L664.7,358.1L666.5,357.3L666.9,356.7L666.7,355.3L667.5,353.2L668.7,352.0L669.9,349.1L670.8,347.5L670.7,345.2L671.5,343.0L672.5,341.9L672.3,340.6L672.5,338.7L673.3,335.5L672.8,331.3L673.1,329.1L672.7,327.6L673.4,326.0L673.6,324.7L675.3,324.9L676.9,322.3L677.8,320.2L679.2,317.9L680.9,316.7L684.1,312.3L684.6,311.3L685.6,307.9L685.7,305.5L685.2,302.4L684.4,299.5L683.5,298.0L682.1,297.7L680.3,297.8L678.5,297.2L678.1,296.5L677.1,296.1L675.8,294.8L674.5,293.0L670.0,290.0L668.5,289.8L665.9,290.3L664.2,289.6L663.0,289.8L660.9,288.6L659.6,288.3L659.4,288.8L657.9,289.0L656.8,288.9L656.4,290.3L655.5,291.0L656.1,288.4L656.6,288.3L655.7,286.1L654.4,285.1L653.8,285.9L653.3,284.8L652.7,284.7L651.0,283.6L649.7,283.4L649.2,282.7L647.4,282.2L645.2,282.6L644.2,284.0L644.2,285.3L643.4,285.2L642.5,286.4L641.6,286.1L640.3,286.8L639.4,286.4L638.2,287.1L637.3,286.2L636.6,283.9L635.5,284.3L633.5,285.6L634.2,283.6L634.3,282.7L635.2,281.4L635.6,280.3L637.0,279.4L638.6,277.1L639.8,275.9L639.6,274.2L638.0,273.6L637.4,272.5L636.3,268.5L636.2,267.2L635.7,265.7L635.0,264.9L634.4,265.8L633.4,267.1L631.2,271.7L630.4,272.4L628.0,271.8L626.9,272.6L625.4,271.8L624.2,270.9L622.0,271.6L621.4,271.2L620.8,271.9L621.4,272.9L621.1,273.6L619.7,273.2L618.6,273.4L617.8,273.0L616.3,274.1L614.1,274.4L613.5,275.5L612.5,275.8L611.3,275.2L609.7,273.3L609.7,272.1L609.0,270.6L609.5,268.3L609.5,267.4L610.4,266.2L609.5,264.3L608.7,264.2L609.0,262.2L608.6,261.7L606.7,261.8L607.2,262.5L606.0,264.1L605.1,264.2L604.3,265.0L602.5,265.7L601.7,265.4L600.7,265.9L600.6,267.2L600.0,267.4L599.0,266.3L596.8,266.2L596.0,265.5L595.1,265.5L595.1,266.3L596.2,267.4L596.2,268.8L597.1,271.4L598.7,271.6L598.7,272.2L596.7,273.3L596.5,274.3L594.6,275.6L593.5,276.1L592.7,277.0L591.7,276.6L590.5,277.2L589.4,277.1ZM640.6,280.8L638.7,280.4L637.5,280.9L637.1,282.3L637.1,284.3L637.9,286.3L640.7,286.0L642.7,285.2L643.9,282.8L644.4,281.2L643.7,280.8L642.1,280.6ZM640.2,279.1L638.6,279.2L638.4,279.9L639.9,280.0ZM633.9,285.0L635.6,283.6L635.9,282.3L634.7,282.3Z","BOL":"M580.0,341.3L580.7,342.8L581.3,343.2L581.7,346.4L583.2,348.0L582.5,349.0L582.4,351.6L584.0,354.6L584.1,355.7L584.7,357.2L585.0,359.9L587.1,359.9L588.6,357.8L589.6,357.4L590.4,356.4L591.4,357.3L593.6,357.3L595.0,357.8L595.7,359.7L596.9,357.2L597.4,357.0L600.4,357.0L600.9,357.8L602.1,353.7L602.1,352.0L603.2,350.2L603.6,348.8L609.0,347.6L611.8,347.5L614.5,349.4L614.6,350.6L615.5,349.9L614.7,349.1L615.7,346.8L616.4,344.0L615.6,341.3L613.9,340.3L613.4,337.2L608.5,336.9L608.1,331.2L607.6,329.6L607.4,328.3L605.7,327.2L603.5,327.4L602.4,326.0L600.6,325.5L599.7,324.3L598.1,323.8L595.5,323.5L595.3,322.9L593.8,321.9L592.6,319.4L592.8,318.1L592.4,316.6L592.8,315.9L592.6,314.0L589.9,314.4L588.5,314.9L587.4,315.9L585.9,316.8L585.5,317.4L584.4,317.4L583.4,318.6L579.8,318.3L582.5,323.8L581.7,325.1L581.7,327.2L581.4,327.9L582.0,329.7L580.9,331.1L580.5,332.4L581.1,333.3L580.3,334.6L580.9,336.5L581.9,336.9L581.5,338.2L579.7,340.2Z","BLZ":"M520.2,217.7L520.0,224.4L521.0,224.4L521.6,223.1L522.8,221.8L522.9,218.4L523.4,216.6L522.8,215.4L522.2,215.4L521.3,217.1Z","BHS":"M556.5,189.3L556.7,188.2L557.1,187.8L556.6,187.3ZM555.0,193.5L554.1,192.0L553.3,193.4L554.1,195.0L555.0,194.4Z","ARG":"M616.3,385.7L618.3,383.6L620.2,381.0L622.0,378.7L623.9,377.5L624.7,376.4L626.3,376.0L627.8,374.9L628.3,371.8L627.6,369.8L626.8,369.3L625.4,369.5L625.2,372.1L624.7,373.3L623.8,374.3L622.9,374.5L621.8,376.0L620.7,375.6L619.8,376.4L617.8,376.1L613.1,375.2L614.5,373.2L614.5,372.3L615.4,371.0L616.3,368.9L615.6,368.0L614.0,367.4L610.9,365.6L609.3,364.3L606.4,363.5L603.5,361.1L601.8,358.5L600.9,357.8L600.4,357.0L597.4,357.0L596.9,357.2L595.7,359.7L595.0,357.8L593.6,357.3L591.4,357.3L590.4,356.4L589.6,357.4L588.6,357.8L587.1,359.9L587.7,360.5L586.6,364.1L583.9,365.4L582.9,366.9L583.5,367.8L582.8,369.2L583.4,371.5L582.9,372.8L583.6,374.6L582.1,375.0L581.1,377.7L579.6,379.4L579.1,381.8L578.5,382.6L578.8,384.2L578.7,386.3L578.1,386.5L577.0,389.0L576.8,390.5L578.0,393.6L578.5,396.4L579.2,396.9L578.9,398.1L579.0,399.8L578.4,400.1L577.7,401.6L577.1,403.7L577.3,406.2L575.3,407.8L574.9,408.9L575.1,409.9L575.0,412.2L575.4,413.1L575.7,415.6L574.2,416.5L573.9,418.6L573.3,418.7L573.4,421.2L572.7,422.4L572.7,425.8L573.2,427.3L572.1,428.1L572.0,430.5L573.1,431.1L572.8,432.0L573.4,433.8L573.0,435.3L574.9,435.5L574.7,436.7L573.7,437.4L574.4,438.3L573.2,440.0L573.6,440.8L572.8,441.6L573.4,443.0L572.6,443.9L572.8,445.2L571.4,446.2L570.9,447.6L571.4,449.3L570.6,450.8L569.5,451.4L569.0,452.6L567.6,453.5L567.9,455.5L569.0,457.6L570.9,457.1L571.6,458.2L571.2,460.4L572.7,462.0L578.7,462.0L581.0,462.5L583.3,463.3L581.5,460.7L580.9,458.3L581.8,456.3L584.2,455.3L585.3,454.5L585.6,452.4L587.6,450.2L589.5,449.2L591.3,447.8L590.9,447.4L591.5,445.7L590.7,444.8L588.4,444.5L586.0,442.2L586.0,440.9L587.9,438.4L590.2,437.4L591.8,437.5L591.8,436.3L592.7,435.7L593.0,434.2L592.9,432.7L593.8,431.5L595.5,430.7L593.7,429.7L594.8,428.9L595.8,429.0L596.4,430.0L597.8,429.8L598.0,428.4L597.4,427.4L596.5,428.4L595.5,428.5L593.6,426.9L593.7,425.5L593.4,423.1L594.2,422.8L597.5,424.0L600.0,423.9L601.7,423.1L602.0,419.7L602.8,417.8L601.9,417.0L602.7,416.2L605.6,416.5L609.5,415.9L614.5,414.5L616.5,413.3L616.9,412.1L617.9,411.1L619.1,409.0L619.0,407.5L617.3,406.5L617.1,405.0L617.6,404.3L617.2,403.2L615.8,402.1L614.2,401.4L613.5,400.1L613.9,399.7L613.4,397.8L613.8,395.9L614.6,395.4L614.5,393.6L614.5,391.7L615.7,388.0L615.5,387.1ZM582.7,472.0L584.0,471.9L587.9,472.2L589.2,472.6L592.7,472.1L586.8,469.2L584.6,467.5L583.8,465.4L582.7,464.3Z","SXM":"M599.5,216.8L599.8,216.9L599.8,216.8Z"},"inset":{"PRI":"M410.3,423.3L409.8,423.0L404.6,422.8L402.5,422.6L401.7,422.8L400.8,424.1L401.6,425.4L401.4,427.6L401.8,427.9L403.8,428.1L404.9,427.7L407.1,427.7L408.0,428.1L410.3,428.1L411.7,427.8L412.8,427.1L413.8,425.8L414.6,425.3L414.5,423.9L412.4,423.3L410.8,423.0Z","MEX":"M235.0,393.3L235.0,401.5L236.1,399.7L236.9,397.2L236.6,396.4L236.5,394.6ZM235.5,405.3L237.1,403.0L235.6,403.0L235.0,404.1L235.0,405.3Z","JAM":"M316.8,423.2L315.2,423.1L311.6,422.6L310.8,423.0L308.8,423.2L307.9,424.2L308.1,425.5L310.0,425.8L310.9,427.1L311.6,427.4L312.5,428.8L315.1,429.0L316.0,429.2L317.3,430.3L317.7,429.1L318.4,428.6L319.5,429.0L320.2,427.8L321.8,428.3L323.0,428.9L324.9,428.7L325.6,428.4L324.5,426.1L321.5,425.1L319.8,423.8L317.8,423.5Z","HTI":"M362.8,411.0L359.2,410.7L355.7,409.2L353.6,409.0L351.6,409.2L350.0,409.7L349.2,410.2L348.9,411.0L349.3,411.6L352.1,412.0L355.1,413.7L354.5,415.6L354.8,416.7L354.2,417.3L355.5,418.9L357.1,420.4L358.1,421.1L357.9,422.0L355.8,422.3L355.2,423.0L354.4,423.4L353.3,423.2L347.6,422.6L346.8,422.1L345.4,422.0L342.3,421.2L341.0,421.6L340.2,423.2L340.7,424.3L343.5,425.5L345.2,427.2L346.3,425.8L347.2,425.4L349.4,425.2L353.6,426.1L355.7,425.9L356.8,425.5L360.5,425.4L361.5,425.8L362.9,427.2L363.0,424.3L362.1,423.6L361.0,421.8L362.1,421.6L363.1,420.5L363.2,419.3L362.6,418.1L363.9,416.7L364.0,416.0L363.1,415.2L363.5,413.9ZM354.2,420.1L353.3,419.3L351.2,418.3L350.2,418.9L351.9,420.0L354.1,420.8Z","DOM":"M362.9,427.2L363.7,428.0L364.1,429.8L366.1,431.0L368.5,426.9L368.7,425.4L369.1,424.9L371.4,424.3L372.4,424.4L373.8,425.5L376.2,425.2L377.6,424.0L379.7,423.3L381.8,423.6L383.9,423.3L385.6,423.7L386.7,423.6L387.7,424.3L388.6,425.5L389.1,425.5L389.9,424.2L390.9,423.5L391.6,422.4L391.4,421.1L388.8,418.8L387.0,418.0L384.8,417.6L382.9,417.1L380.9,416.8L381.1,416.0L383.5,416.0L384.3,415.3L383.5,414.7L380.0,415.0L379.3,414.4L378.8,413.3L378.7,412.2L378.2,411.5L376.7,411.8L375.2,411.4L374.1,410.5L372.5,410.4L370.8,409.4L369.8,409.1L367.4,409.7L365.7,409.3L364.7,409.3L363.8,409.7L362.8,411.0L363.5,413.9L363.1,415.2L364.0,416.0L363.9,416.7L362.6,418.1L363.2,419.3L363.1,420.5L362.1,421.6L361.0,421.8L362.1,423.6L363.0,424.3Z","CUB":"M278.4,377.7L276.2,377.5L274.1,377.8L271.4,378.9L266.4,379.6L259.8,382.5L257.8,384.4L257.2,385.3L257.0,386.5L257.5,388.2L257.1,388.6L255.7,388.7L252.8,390.0L253.1,390.6L254.4,389.9L256.0,389.6L256.4,391.0L258.2,389.9L259.9,389.5L261.0,387.3L262.8,387.2L263.6,386.9L264.5,387.2L265.4,386.8L267.4,385.2L268.5,384.0L270.8,382.3L277.8,382.4L279.1,382.8L279.6,383.8L279.1,384.5L276.3,385.2L277.2,386.2L278.6,387.0L281.7,387.2L282.4,388.0L283.6,387.6L283.8,386.4L284.7,388.0L285.7,388.4L289.6,388.3L289.7,387.8L291.9,390.2L294.6,391.4L299.9,393.2L300.6,393.3L303.7,392.6L304.5,392.9L305.3,393.6L306.1,395.8L306.5,398.1L309.6,400.9L310.6,401.4L315.1,401.6L317.1,402.0L318.1,403.5L318.1,404.3L317.2,405.4L314.3,407.5L313.0,409.7L315.1,409.6L317.2,409.3L319.0,409.3L320.8,408.9L326.1,408.4L329.4,408.7L331.2,409.3L333.4,409.3L334.3,408.7L334.8,409.2L337.1,408.3L338.9,407.7L342.1,407.5L342.9,406.6L342.8,405.5L342.2,405.1L341.0,405.1L339.9,404.6L338.1,402.7L336.8,402.0L334.0,401.4L332.9,401.5L330.4,401.2L329.6,400.5L330.8,398.7L329.7,397.6L326.8,397.3L325.2,396.4L323.6,396.0L322.0,395.9L321.6,395.3L320.4,394.8L318.2,392.9L317.2,394.0L315.9,392.7L317.5,392.8L317.8,392.4L316.5,391.8L314.8,390.2L314.4,391.1L311.7,389.9L309.4,387.9L304.8,385.4L303.0,385.2L300.6,385.2L299.9,385.0L297.6,383.4L296.5,381.8L293.2,379.9L290.7,379.8L289.2,379.2L288.3,378.3L285.3,378.4L283.9,378.7L283.1,378.1L280.6,378.2ZM313.4,389.4L313.7,388.4L312.5,388.1L311.4,388.6ZM310.4,386.2L309.3,384.8L309.1,385.9ZM305.3,383.7L306.0,384.5L307.3,384.7L307.7,383.8ZM272.3,393.1L271.7,391.2L271.0,390.0L268.7,389.5L267.9,391.0L268.8,392.9L267.4,393.5L268.1,394.1L269.8,394.3Z","BHS":"M313.5,367.2L313.1,366.9L310.6,367.5L311.9,369.3L312.5,372.0L314.2,372.2L314.6,370.9L314.3,368.4L313.2,368.5L312.7,368.1ZM352.4,396.8L351.5,396.6L350.6,397.1L349.0,396.7L348.2,396.8L346.9,397.6L347.1,399.2L349.2,399.2L351.2,398.8ZM312.7,362.8L311.9,362.0L310.9,360.0L309.2,360.0L309.0,360.8L308.1,362.4L308.5,363.3L306.9,363.6L307.5,364.4L309.0,365.2L310.0,366.1L310.2,366.9L312.7,365.2ZM343.7,382.0L342.4,381.1L341.9,382.1L343.4,382.5ZM342.5,386.9L344.4,385.5L345.6,383.8L345.2,382.4L344.4,382.8L344.9,383.5L344.7,384.3L343.1,385.8ZM337.1,380.3L337.1,379.3L336.3,378.4L335.3,377.9L334.9,376.1L334.5,376.1L334.7,378.2L336.0,378.6ZM333.2,367.7L330.3,364.0L331.6,366.5L332.4,367.1L331.9,368.3Z"},"pts":{"DOM":[577.3320000000001,213.85],"VEN":[590.1210000000001,253.40000000000003],"CUB":[550.5360000000001,203.70000000000002],"PRI":[589.2075,216.125],"MEX":[479.58750000000003,196.0],"CAN":[468.92999999999995,80.5],"JPN":[117.23249999999999,151.9],"KOR":[84.95550000000001,152.6],"USA":[493.28999999999996,141.75],"LA":[431.78100000000006,161.0],"NY":[566.37,137.54999999999998],"MIA":[547.4910000000001,189.70000000000002],"HOU":[501.2070000000001,175.70000000000002],"TOR":[549.927,127.04999999999998]},"ipts":{"DOM":[374.43999999999994,418.89655172413796],"CUB":[300.52,390.8965517241379],"PRI":[407.20000000000005,425.17241379310343]},"box":[235,360,210,86.89655172413794],"cbox":[[526.785,192.5],[602.91,224.0]]};
+const NAMES = {"VNM":"베트남","VUT":"바누아투","TLS":"동티모르","THA":"태국","TWN":"타이완","KOR":"대한민국","SLB":"솔로몬 제도","SGP":"싱가포르","RUS":"러시아","PHL":"필리핀","PNG":"파푸아뉴기니","PRK":"북한","NZL":"뉴질랜드","MNG":"몽골","MYS":"말레이시아","LAO":"라오스","JPN":"일본","IDN":"인도네시아","IND":"인도","NCL":"누벨칼레도니","FJI":"피지","CHN":"중국","MAC":"마카오","HKG":"홍콩","KHM":"캄보디아","MMR":"미얀마","BRN":"브루나이","AUS":"오스트레일리아","VEN":"베네수엘라","URY":"우루과이","PRI":"푸에르토리코","USA":"미국","SGS":"사우스조지아 사우스샌드위치 제도","FLK":"포클랜드 제도","TTO":"트리니다드 토바고","SUR":"수리남","WSM":"사모아","PER":"페루","PRY":"파라과이","PAN":"파나마","NIC":"니카라과","CUW":"퀴라소","MEX":"멕시코","JAM":"자메이카","ISL":"아이슬란드","HND":"온두라스","HTI":"아이티","GUY":"가이아나","GTM":"과테말라","FRA":"프랑스령 기아나","MAF":"생마르탱","PYF":"프랑스령 폴리네시아","SLV":"엘살바도르","ECU":"에콰도르","DOM":"도미니카공화국","DMA":"도미니카 연방","GRL":"그린란드","CUB":"쿠바","CRI":"코스타리카","COL":"콜롬비아","CHL":"칠레","CPV":"카보베르데","CAN":"캐나다","BRA":"브라질","BOL":"볼리비아","BLZ":"벨리즈","BHS":"바하마","ARG":"아르헨티나","SXM":"신트마르턴"};
+
+/* ───────────── 학습 내용 ─────────────
+   n = 최근 MLB 개막전 로스터 기준 대략적인 선수 수 (해마다 달라짐, 수업 전 최신 자료로 확인) */
+const COUNTRIES = {
+  DOM:{name:'도미니카공화국', n:100, nText:'약 100명', inset:true,
+    players:['후안 소토','훌리오 로드리게스','라파엘 데버스'],
+    pnote:'외국 출신 MLB 선수 가운데 가장 많은 수가 이 나라에서 와요.',
+    from:'CUB', spread:'1880년대 쿠바에서 건너온 이주민들이 야구를 전했고, 사탕수수 농장 노동자들의 팀을 통해 널리 퍼졌어요.',
+    people:'원주민 타이노족, 스페인 식민 지배자, 아프리카에서 강제로 끌려온 사람들이 만나 오늘날 인구의 다수가 혼혈이에요.',
+    to:'NY', move:'MLB 구단들이 세운 야구 아카데미가 많아 어린 선수들이 꿈을 안고 미국으로 건너가요. 뉴욕에는 큰 도미니카계 공동체가 있어요.',
+    culture:[
+      {res:'메렝게', mix:[['아프리카','탐보라 북 리듬'],['유럽','아코디언'],['원주민','긁는 악기 귀라']], d:'도미니카공화국을 대표하는 춤과 음악. 아코디언은 유럽 상인들을 통해 들어왔어요. 세 대륙의 소리가 한 곡에 들어 있어요.'},
+      {res:'허리케인·해먹·바비큐', mix:[['원주민','타이노어 huracán·hamaca·barbacoa'],['유럽','스페인어'],['미국·캐나다','영어']], d:'카리브해 원주민의 말이 스페인어를 거쳐 영어 단어가 됐어요. 우리가 쓰는 "바비큐"도 여기서 왔어요.'},
+      {res:'산코초', mix:[['유럽','스페인식 스튜 조리법'],['원주민','카사바(유카)'],['아프리카','플랜틴·얌 같은 뿌리채소']], d:'여러 재료를 한 솥에 끓이는 잔치 음식. 재료마다 건너온 길이 달라요.'}
+    ],
+    fact:'쿠바 이주민이 야구를 전해 준 카리브해의 나라',
+    think:'도미니카공화국 출신 선수가 왜 이렇게 많을까? 야구 아카데미와 경제적 기회를 함께 생각해 봐요.'},
+  VEN:{name:'베네수엘라', n:60, nText:'약 60명',
+    players:['호세 알투베','로널드 아쿠냐 주니어','살바도르 페레스'],
+    pnote:'도미니카공화국 다음으로 많은 선수가 와요.',
+    from:'USA', spread:'1920년대 석유가 발견되자 미국 석유 회사 직원들이 들어오면서 야구가 널리 퍼졌어요.',
+    people:'원주민, 스페인계, 아프리카계가 섞인 혼혈 인구가 가장 많아요.',
+    to:'MIA', move:'최근 경제 위기로 수백만 명이 나라를 떠나 다른 아메리카 국가로 이주했어요. 미국 마이애미 근처에도 베네수엘라계 공동체가 커졌어요.',
+    culture:[
+      {res:'아레파', mix:[['원주민','옥수수 반죽 빵'],['유럽','치즈·돼지고기 같은 속재료']], d:'원주민이 먹던 옥수수 빵을 갈라 유럽에서 들어온 재료를 채워 먹는 국민 음식이에요.'},
+      {res:'아야카', mix:[['원주민','바나나잎에 싸서 찌는 방법'],['유럽','올리브·건포도·케이퍼'],['유럽','가톨릭 크리스마스 풍습']], d:'크리스마스에 온 가족이 모여 만드는 음식. 원주민의 조리법과 스페인 재료가 한 잎 안에 싸여 있어요.'},
+      {res:'호로포', mix:[['유럽','하프·쿠아트로(작은 기타)'],['원주민','마라카스'],['아프리카','아프리카계 리듬']], d:'베네수엘라 평원 지대에서 시작된 대표 음악과 춤이에요.'}
+    ],
+    fact:'석유 회사 직원들을 통해 야구가 널리 퍼진 남아메리카의 나라',
+    think:'석유 개발과 야구의 확산은 어떤 관계가 있을까?'},
+  CUB:{name:'쿠바', n:20, nText:'약 20명', inset:true,
+    players:['요르단 알바레스','랜디 아로사레나','아롤디스 채프먼'],
+    pnote:'아로사레나는 쿠바에서 태어났지만 멕시코를 거쳐 MLB에 왔고, WBC에서는 멕시코 대표로 뛰었어요.',
+    from:'USA', spread:'1860년대 미국에서 공부하고 돌아온 쿠바 학생들이 야구를 들여왔어요. 스페인 식민 지배 시절, 투우 대신 야구를 즐기는 것이 독립의 상징처럼 여겨지기도 했어요.',
+    people:'스페인계와 아프리카계, 그리고 그 혼혈 인구가 대부분이에요.',
+    to:'MIA', move:'미국과 쿠바의 오랜 갈등 때문에, 많은 선수가 MLB에서 뛰려고 위험을 무릅쓰고 나라를 떠났어요. 마이애미에는 큰 쿠바계 공동체가 있어요.',
+    culture:[
+      {res:'손(쿠바 음악)', mix:[['유럽','스페인 기타(트레스)'],['아프리카','봉고·클라베 타악기']], d:'쿠바 음악의 뿌리이자 살사의 바탕이 된 음악이에요.'},
+      {res:'살사', mix:[['중남미·카리브','쿠바의 손 음악'],['중남미·카리브','푸에르토리코 음악'],['미국·캐나다','뉴욕의 재즈']], d:'1960~70년대 뉴욕으로 이주한 쿠바·푸에르토리코 사람들이 만든 음악. 이주가 새로운 문화를 낳은 대표 사례예요.'},
+      {res:'쿠바노 샌드위치', mix:[['중남미·카리브','쿠바식 돼지고기 구이'],['유럽','스페인 햄·이탈리아 살라미'],['미국·캐나다','미국 플로리다의 이민자 마을']], d:'미국 플로리다 탬파에서 쿠바·스페인·이탈리아 이민자들이 함께 살며 완성된 샌드위치예요.'}
+    ],
+    fact:'1860년대 미국 유학생들이 야구를 들여온 카리브해의 섬나라',
+    think:'국가 사이의 갈등은 선수들의 이동에 어떤 영향을 줄까?'},
+  PRI:{name:'푸에르토리코', n:15, nText:'10명대', inset:true,
+    players:['프란시스코 린도어','카를로스 코레아','로베르토 클레멘테(전설)'],
+    pnote:'나라가 아닌 미국 자치령이지만, MLB 통계와 WBC에서는 따로 구분해요.',
+    from:'CUB', spread:'1890년대 쿠바인과 미국인을 통해 야구가 전해졌고, 1898년 미국-스페인 전쟁 뒤 미국령이 되면서 더 널리 퍼졌어요.',
+    people:'원주민 타이노족, 스페인계, 아프리카계가 섞였어요. 1917년부터 주민은 미국 시민권을 가져요.',
+    to:'NY', move:'미국 시민이라 본토를 자유롭게 오갈 수 있어요. 그래서 뉴욕 등 미국 본토에 사는 푸에르토리코계 사람이 섬에 사는 사람보다 많아요.',
+    culture:[
+      {res:'레게톤', mix:[['중남미·카리브','자메이카 레게·댄스홀'],['중남미·카리브','파나마의 스페인어 레게'],['미국·캐나다','미국 힙합']], d:'1990년대 푸에르토리코에서 꽃핀 음악. 배드 버니, 대디 양키가 세계에 알렸어요.'},
+      {res:'스팽글리시', mix:[['유럽','스페인어'],['미국·캐나다','영어']], d:'"주차하다(park)"를 스페인어처럼 "parquear"라고 말하는 식으로 두 언어가 섞여요.'},
+      {res:'모퐁고', mix:[['아프리카','재료를 으깨 뭉치는 푸푸 요리법'],['중남미·카리브','플랜틴(요리용 바나나)'],['유럽','스페인식 돼지껍질 튀김']], d:'아프리카에서 끌려온 사람들의 요리법이 카리브해 재료와 만나 생긴 음식이에요.'}
+    ],
+    fact:'1898년 이후 미국령이 되어 주민이 미국 시민권을 가진 섬',
+    think:'푸에르토리코는 미국 땅인데 왜 WBC에 따로 대표팀을 낼까? 정체성에 대해 생각해 봐요.'},
+  MEX:{name:'멕시코', n:12, nText:'10명대',
+    players:['페르난도 발렌수엘라(전설)','알레한드로 커크','안드레스 무뇨스'],
+    pnote:'1981년 LA 다저스 발렌수엘라의 열풍("페르난도마니아")은 LA의 멕시코계 주민들을 야구장으로 불러 모았어요.',
+    from:'USA', spread:'19세기 후반 철도를 놓으러 온 미국 노동자와 선원들을 통해 야구가 전해졌어요.',
+    people:'원주민과 스페인계의 혼혈인 메스티소가 인구의 다수예요.',
+    to:'LA', move:'미국 남서부는 원래 멕시코 땅이었고, 지금도 많은 사람이 국경을 넘어 이동해요. 국경과 이주 정책은 두 나라 사이의 큰 쟁점이에요.',
+    culture:[
+      {res:'나초(텍스멕스)', mix:[['중남미·카리브','멕시코 옥수수 칩·할라페뇨'],['미국·캐나다','미국식 체다 치즈']], d:'1943년 멕시코 국경 마을에서 미국인 손님을 위해 즉석으로 만든 요리가 텍스멕스의 대표 메뉴가 됐어요.'},
+      {res:'과달루페 성모', mix:[['유럽','가톨릭 성모 마리아'],['원주민','아스테카 원주민의 상징·갈색 피부']], d:'멕시코 사람들이 가장 사랑하는 상징이에요. 원주민의 성스러운 언덕에 나타났다고 전해져요.'},
+      {res:'망자의 날', mix:[['원주민','아스테카의 조상을 기리는 풍습'],['유럽','가톨릭 위령의 날(11월 2일)']], d:'영화 〈코코〉의 배경이 된 축제. 죽은 가족을 즐겁게 맞이해요.'}
+    ],
+    fact:'미국과 긴 국경을 맞대고 있고, 미국 남서부가 원래 이 나라 땅이었어요',
+    think:'국경은 사람의 이동을 막을 수 있지만, 문화의 이동도 막을 수 있을까?'},
+  CAN:{name:'캐나다', n:10, nText:'10명 안팎',
+    players:['블라디미르 게레로 주니어','프레디 프리먼','조이 보토(은퇴)'],
+    pnote:'게레로 주니어는 몬트리올에서 태어났고 아버지는 도미니카 출신 명예의 전당 선수예요. 프리먼은 미국에서 태어났지만 캐나다인 부모를 따라 WBC 캐나다 대표로 뛰었어요.',
+    from:null, spread:'1838년 온타리오주에서 야구 경기를 했다는 기록이 있을 만큼, 미국과 거의 같은 시기에 야구가 자리 잡았어요. 토론토 블루제이스는 MLB의 유일한 캐나다 구단이에요.',
+    people:'원주민, 영국계, 프랑스계에 더해 전 세계에서 온 이민자가 함께 살아요. 인구의 약 4분의 1이 다른 나라에서 태어났어요.',
+    to:'USA', move:'미국과 자유롭게 교류하며, 선수들은 미국과 캐나다 구단을 오가요.',
+    culture:[
+      {res:'문화 모자이크', mix:[['유럽','영국계 문화'],['유럽','프랑스계 문화(퀘벡)'],['원주민','원주민(퍼스트 네이션) 문화'],['아시아','세계 각지 이민자 문화']], d:'1971년 세계 최초로 다문화주의를 공식 정책으로 정했어요. 섞여서 하나가 되는 "용광로"와 달리, 각자의 색을 지키는 "모자이크"에 빗대요.'},
+      {res:'토론토 카리브 카니발', mix:[['중남미·카리브','트리니다드 토바고의 카니발'],['미국·캐나다','캐나다 대도시 토론토']], d:'1967년 카리브해 이민자들이 시작한 북아메리카 최대급 거리 축제예요.'},
+      {res:'이중 언어 포장지', mix:[['유럽','영어'],['유럽','프랑스어']], d:'영어와 프랑스어가 모두 공용어라 과자 봉지와 표지판에도 두 언어가 함께 쓰여요.'}
+    ],
+    fact:'영어와 프랑스어를 함께 공용어로 쓰고, MLB 구단이 하나 있는 나라',
+    think:'섞여서 하나가 되는 것(용광로)과 각자의 색을 지키며 함께 사는 것(모자이크)은 어떻게 다를까?'},
+  JPN:{name:'일본', n:12, nText:'10명대',
+    players:['오타니 쇼헤이','야마모토 요시노부','스즈키 세이야'],
+    pnote:'아메리카 밖에서 가장 많은 MLB 선수를 보내는 나라 가운데 하나예요.',
+    from:'USA', spread:'1872년 미국인 교사 호러스 윌슨이 도쿄의 학교에서 학생들에게 야구를 가르쳤어요.',
+    people:'1900년대 초부터 하와이, 미국 서부, 브라질, 페루로 많은 사람이 이주했어요. 브라질에는 일본 밖에서 가장 큰 일본계 공동체가 있어요.',
+    to:'LA', move:'태평양을 사이에 두고 사람, 야구, 음식이 양쪽으로 오가요.',
+    culture:[
+      {res:'캘리포니아 롤', mix:[['아시아','일본 김초밥'],['미국·캐나다','LA의 아보카도·게살']], d:'김을 안쪽으로 말아 미국 사람 입맛에 맞춘 초밥이에요. 미국에서 생겨 일본으로 거꾸로 건너가기도 했어요.'},
+      {res:'티라디토(닛케이 요리)', mix:[['아시아','일본식 생선회 손질법'],['중남미·카리브','페루의 라임·고추']], d:'페루로 이주한 일본인들이 페루 재료로 만든 요리예요.'},
+      {res:'상파울루 리베르다지', mix:[['아시아','일본 이민자(1908년~)'],['중남미·카리브','브라질 대도시 상파울루']], d:'브라질 상파울루의 동아시아 거리. 일본식 등불과 상점이 늘어서 있어요.'}
+    ],
+    fact:'1872년 미국인 교사가 처음 야구를 가르친 아시아의 나라',
+    think:'아메리카에서 섞인 문화가 다시 아시아로 돌아오는 예를 찾아볼까?'},
+  KOR:{name:'대한민국', n:3, nText:'몇 명(보너스)', bonus:true,
+    players:['이정후','김혜성','토미 에드먼'],
+    pnote:'토미 에드먼은 미국에서 태어났지만 어머니가 한국 사람이어서 2023 WBC 한국 대표로 뛰었어요.',
+    from:'USA', spread:'1905년 미국인 선교사 필립 질레트가 YMCA 회원들에게 야구를 가르쳤어요.',
+    people:'1903년 하와이 사탕수수 농장으로 떠난 이민을 시작으로 많은 한국인이 아메리카로 이주했어요.',
+    to:'LA', move:'LA에는 미국에서 가장 큰 코리아타운이 있어요.',
+    culture:[
+      {res:'코리안 타코', mix:[['아시아','한국 불고기·김치'],['중남미·카리브','멕시코 타코']], d:'2008년 LA의 한 푸드트럭에서 시작돼 미국 전역으로 퍼졌어요.'},
+      {res:'LA 코리아타운', mix:[['아시아','한국계 이민자'],['중남미·카리브','중남미계 이민자'],['미국·캐나다','미국 대도시 LA']], d:'한글 간판 옆에 스페인어 간판이 함께 걸린, 여러 문화가 겹친 동네예요. 실제 주민은 중남미계가 가장 많아요.'}
+    ],
+    fact:'1905년 미국인 선교사가 YMCA에서 야구를 가르친 우리나라',
+    think:'우리 주변에서 볼 수 있는 아메리카 문화 혼종 사례는 무엇일까?'}
+};
+/* ───────────── 그림 (문화 레시피 일러스트, 64×64) ───────────── */
+const C_={red:'#d1373f',wood:'#b5773a',cream:'#f6e7c8',brown:'#7a4a25',gold:'#f2b53b',green:'#3f8f4f',leaf:'#5aa05a',blue:'#3866ad',dark:'#2f3138',orange:'#ec8a22',pink:'#f2a3a0'};
+const ICONS={
+DOM:[
+ /* 메렝게: 아코디언 + 탐보라 북 */
+ `<rect x="4" y="16" width="9" height="30" rx="2" fill="${C_.red}"/><rect x="31" y="16" width="9" height="30" rx="2" fill="${C_.red}"/>
+  <path d="M13 18L17 23L21 18L25 23L29 18L31 18L31 44L29 44L25 39L21 44L17 39L13 44Z" fill="${C_.cream}" stroke="${C_.brown}" stroke-width="1"/>
+  <circle cx="8.5" cy="23" r="1.4" fill="#fff"/><circle cx="8.5" cy="29" r="1.4" fill="#fff"/><circle cx="8.5" cy="35" r="1.4" fill="#fff"/>
+  <rect x="44" y="30" width="16" height="17" fill="${C_.wood}"/><ellipse cx="52" cy="47" rx="8" ry="3" fill="${C_.brown}"/><ellipse cx="52" cy="30" rx="8" ry="3" fill="${C_.cream}" stroke="${C_.brown}"/>
+  <path d="M44 34L60 43M60 34L44 43" stroke="${C_.cream}" stroke-width="1.2"/>`,
+ /* 허리케인·해먹·바비큐: 야자수 사이 해먹 */
+ `<circle cx="50" cy="12" r="6" fill="${C_.gold}"/>
+  <path d="M10 56Q8 36 12 18M54 56Q56 38 52 22" stroke="${C_.brown}" stroke-width="3" fill="none"/>
+  <path d="M12 18q-10-2-12 6q6-6 12-6q-2-10 6-12q-6 6-6 12q8-4 14 2q-8-2-14-2z" fill="${C_.leaf}"/>
+  <path d="M52 22q10-2 12 6q-6-6-12-6q2-10-6-12q6 6 6 12q-8-4-14 2q8-2 14-2z" fill="${C_.leaf}"/>
+  <path d="M12 32Q32 54 53 34L53 37Q32 58 12 35Z" fill="${C_.red}"/><path d="M14 34Q32 52 51 36" stroke="#fff" stroke-width="1" fill="none" stroke-dasharray="2 2"/>`,
+ /* 산코초: 냄비 스튜 */
+ `<path d="M24 14q-3-4 0-8M32 14q-3-4 0-8M40 14q-3-4 0-8" stroke="#9aa3b2" stroke-width="2" fill="none" stroke-linecap="round"/>
+  <ellipse cx="32" cy="24" rx="24" ry="6" fill="${C_.orange}"/>
+  <circle cx="22" cy="23" r="3.5" fill="${C_.gold}"/><circle cx="34" cy="21" r="3" fill="${C_.cream}"/><circle cx="42" cy="25" r="3.5" fill="${C_.green}"/><circle cx="28" cy="26" r="2.5" fill="${C_.brown}"/>
+  <path d="M8 24h48l-4 26a4 4 0 0 1-4 3H16a4 4 0 0 1-4-3z" fill="${C_.dark}"/><rect x="2" y="26" width="8" height="4" rx="2" fill="${C_.dark}"/><rect x="54" y="26" width="8" height="4" rx="2" fill="${C_.dark}"/>`
+],
+VEN:[
+ /* 아레파 */
+ `<ellipse cx="32" cy="44" rx="24" ry="9" fill="#e2a957"/>
+  <path d="M10 40Q32 32 54 40L54 43Q32 36 10 43Z" fill="#fff"/><path d="M14 40Q32 35 50 40" stroke="${C_.pink}" stroke-width="3" fill="none"/>
+  <path d="M8 38Q10 18 32 18Q54 18 56 38Q32 30 8 38Z" fill="#f2c46b"/>
+  <circle cx="22" cy="27" r="1.6" fill="${C_.brown}"/><circle cx="36" cy="24" r="1.6" fill="${C_.brown}"/><circle cx="44" cy="30" r="1.6" fill="${C_.brown}"/>`,
+ /* 아야카: 바나나잎 꾸러미 */
+ `<rect x="8" y="16" width="48" height="34" rx="5" fill="${C_.green}"/><rect x="13" y="20" width="38" height="26" rx="4" fill="${C_.leaf}"/>
+  <path d="M14 24L50 24M14 30L50 30M14 36L50 36M14 42L50 42" stroke="${C_.green}" stroke-width=".8"/>
+  <path d="M8 33h48M32 16v34" stroke="${C_.cream}" stroke-width="3"/><circle cx="32" cy="33" r="3" fill="${C_.cream}"/>`,
+ /* 호로포: 하프 + 마라카스 */
+ `<path d="M14 56V10Q32 8 42 26L18 56Z" fill="none" stroke="${C_.wood}" stroke-width="4" stroke-linejoin="round"/>
+  <path d="M20 13V50M25 13.5V44M30 15V38M35 18V32" stroke="${C_.gold}" stroke-width="1.2"/>
+  <circle cx="50" cy="38" r="7" fill="${C_.red}"/><rect x="49" y="44" width="2.4" height="14" rx="1" fill="${C_.brown}"/><path d="M45 36l3 3M52 33l3 3" stroke="#fff" stroke-width="1.2"/>`
+],
+CUB:[
+ /* 손: 봉고 */
+ `<rect x="6" y="28" width="22" height="22" rx="3" fill="${C_.wood}"/><ellipse cx="17" cy="28" rx="11" ry="4" fill="${C_.cream}" stroke="${C_.brown}"/>
+  <rect x="34" y="24" width="24" height="26" rx="3" fill="${C_.wood}"/><ellipse cx="46" cy="24" rx="12" ry="4.5" fill="${C_.cream}" stroke="${C_.brown}"/>
+  <rect x="27" y="34" width="8" height="5" fill="${C_.brown}"/><path d="M6 36h22M34 34h24" stroke="${C_.brown}" stroke-width="1.5"/>
+  <path d="M22 8v12M22 8l8-2v12" stroke="${C_.dark}" stroke-width="2" fill="none"/><circle cx="20" cy="20" r="2.5" fill="${C_.dark}"/><circle cx="28" cy="18" r="2.5" fill="${C_.dark}"/>`,
+ /* 살사: 뉴욕 빌딩 + 음표 */
+ `<rect x="4" y="34" width="10" height="24" fill="#8b97ad"/><rect x="16" y="24" width="10" height="34" fill="#6f7d96"/><rect x="28" y="30" width="8" height="28" fill="#8b97ad"/><rect x="38" y="18" width="10" height="40" fill="#5b6984"/><rect x="50" y="36" width="10" height="22" fill="#8b97ad"/>
+  <path d="M42 10v-4" stroke="#5b6984" stroke-width="2"/>
+  <path d="M10 22V8l14-3v14" stroke="${C_.red}" stroke-width="2.5" fill="none"/><circle cx="8" cy="22" r="3.2" fill="${C_.red}"/><circle cx="22" cy="19" r="3.2" fill="${C_.red}"/>
+  <path d="M54 26V14" stroke="${C_.gold}" stroke-width="2.5"/><circle cx="52" cy="26" r="3" fill="${C_.gold}"/>`,
+ /* 쿠바노 샌드위치 */
+ `<path d="M6 30Q32 18 58 30L58 33H6Z" fill="#e2a85a"/>
+  <rect x="7" y="33" width="50" height="4" fill="${C_.pink}"/><path d="M7 37h50l-2 3-3-3-3 3-3-3-3 3-3-3-3 3-3-3-3 3-3-3-3 3-3-3-3 3-3-3-3 3-3-3z" fill="${C_.gold}"/>
+  <rect x="7" y="40" width="50" height="3" fill="#c66a6a"/><circle cx="20" cy="42" r="2.5" fill="${C_.leaf}"/><circle cx="40" cy="42" r="2.5" fill="${C_.leaf}"/>
+  <path d="M6 44H58L56 50H8Z" fill="#d4934a"/><path d="M14 26l4 3M26 22l4 3M38 22l4 3M48 25l4 3" stroke="#b07434" stroke-width="1.5"/>`
+],
+PRI:[
+ /* 레게톤: 스피커 */
+ `<rect x="14" y="8" width="28" height="48" rx="5" fill="${C_.dark}"/><circle cx="28" cy="38" r="10" fill="#4b4e58" stroke="${C_.red}" stroke-width="2.5"/><circle cx="28" cy="38" r="3" fill="${C_.red}"/><circle cx="28" cy="19" r="5" fill="#4b4e58" stroke="#888" stroke-width="1.5"/>
+  <path d="M47 28q5 6 0 12M52 24q8 10 0 20M57 20q11 14 0 28" stroke="${C_.gold}" stroke-width="2.4" fill="none" stroke-linecap="round"/>`,
+ /* 스팽글리시: 말풍선 두 개 */
+ `<path d="M4 8h34a4 4 0 0 1 4 4v14a4 4 0 0 1-4 4H16l-7 6v-6H8a4 4 0 0 1-4-4V12a4 4 0 0 1 4-4z" fill="${C_.red}"/>
+  <text x="23" y="24" text-anchor="middle" font-size="11" font-weight="900" fill="#fff" font-family="sans-serif">Hola</text>
+  <path d="M26 30h32a4 4 0 0 1 4 4v14a4 4 0 0 1-4 4h-2v6l-7-6H26a4 4 0 0 1-4-4V34a4 4 0 0 1 4-4z" fill="${C_.blue}"/>
+  <text x="42" y="46" text-anchor="middle" font-size="11" font-weight="900" fill="#fff" font-family="sans-serif">Hi!</text>`,
+ /* 모퐁고: 돔 모양 플랜틴 요리 */
+ `<ellipse cx="32" cy="50" rx="28" ry="7" fill="#e8e4dc" stroke="#c8c2b6"/>
+  <path d="M14 48Q14 18 32 18Q50 18 50 48Z" fill="#c99a3e"/>
+  <circle cx="24" cy="32" r="2" fill="#9c6a22"/><circle cx="38" cy="28" r="2" fill="#9c6a22"/><circle cx="34" cy="40" r="2" fill="#9c6a22"/><circle cx="22" cy="42" r="1.6" fill="#9c6a22"/>
+  <path d="M28 18q2-6 6-8q-2 6 2 8" fill="${C_.leaf}"/><rect x="40" y="38" width="9" height="5" rx="2" fill="#a45b2c" transform="rotate(-15 44 40)"/>`
+],
+MEX:[
+ /* 나초 */
+ `<ellipse cx="32" cy="50" rx="28" ry="7" fill="#e8e4dc" stroke="#c8c2b6"/>
+  <path d="M8 48L20 22L30 46Z" fill="#f2c14e"/><path d="M22 48L36 18L46 46Z" fill="#f5cf62"/><path d="M36 48L50 26L58 46Z" fill="#f2c14e"/>
+  <path d="M14 34q4 4 8 0q4 4 8 0q4 5 8 0q4 4 8 0q4 4 6 0L44 30q-4 4-8 0q-4 4-8 0q-4 4-8 0z" fill="${C_.orange}"/>
+  <circle cx="26" cy="40" r="3" fill="${C_.green}"/><circle cx="26" cy="40" r="1.2" fill="#d7e8b0"/><circle cx="42" cy="38" r="3" fill="${C_.green}"/><circle cx="42" cy="38" r="1.2" fill="#d7e8b0"/>`,
+ /* 과달루페 성모: 빛살 + 별무늬 망토 */
+ `<g stroke="${C_.gold}" stroke-width="2">${Array.from({length:18},(_,i)=>{const a=i/18*Math.PI*2;return `<line x1="${32+Math.cos(a)*14}" y1="${32+Math.sin(a)*22}" x2="${32+Math.cos(a)*20}" y2="${32+Math.sin(a)*29}"/>`}).join('')}</g>
+  <path d="M32 10Q20 18 21 34L18 54H46L43 34Q44 18 32 10Z" fill="#2f7f7a"/><path d="M26 30Q32 26 38 30L40 54H24Z" fill="#d97a6c"/>
+  <circle cx="32" cy="20" r="4" fill="#9a6a45"/>${[[25,22],[38,24],[23,40],[42,42],[30,48]].map(([x,y])=>`<circle cx="${x}" cy="${y}" r="1.3" fill="${C_.gold}"/>`).join('')}`,
+ /* 망자의 날: 파펠 피카도 + 메리골드 + 초 */
+ `<path d="M2 6Q32 14 62 6" stroke="${C_.dark}" stroke-width="1" fill="none"/>
+  ${[[6,C_.red],[18,'#8a4fb0'],[30,C_.orange],[42,'#2f9fb2'],[54,'#e04f8b']].map(([x,c])=>`<path d="M${x-5} ${7+((x-32)**2)/-130+6} h10 v10 l-2.5 -2 -2.5 2 -2.5 -2 -2.5 2z" fill="${c}"/>`).join('')}
+  <rect x="38" y="34" width="8" height="20" rx="1" fill="${C_.cream}"/><path d="M42 34q-3-4 0-8q3 4 0 8" fill="${C_.gold}"/>
+  ${[[18,44],[26,50],[12,52]].map(([x,y])=>`<circle cx="${x}" cy="${y}" r="7" fill="${C_.orange}"/><circle cx="${x}" cy="${y}" r="4.5" fill="#f6a93b"/><circle cx="${x}" cy="${y}" r="2" fill="#d36b12"/>`).join('')}`
+],
+CAN:[
+ /* 문화 모자이크 */
+ `${[C_.red,C_.blue,C_.gold,C_.green, '#8a4fb0',C_.orange,'#2f9fb2',C_.red, C_.green,C_.pink,C_.blue,C_.gold, C_.gold,C_.red,C_.leaf,'#8a4fb0'].map((c,i)=>`<rect x="${6+(i%4)*13.5}" y="${6+Math.floor(i/4)*13.5}" width="11.5" height="11.5" rx="2" fill="${c}"/>`).join('')}`,
+ /* 카리브 카니발: 깃털 장식 */
+ `${Array.from({length:9},(_,i)=>{const a=-160+i*17.5;const c=[C_.red,C_.orange,C_.gold,C_.leaf,'#2f9fb2',C_.blue,'#8a4fb0','#e04f8b',C_.red][i];return `<ellipse cx="32" cy="16" rx="4.5" ry="15" fill="${c}" transform="rotate(${a+90} 32 40) "/>`}).join('')}
+  <path d="M18 40Q32 30 46 40Q46 50 32 52Q18 50 18 40Z" fill="${C_.gold}"/><circle cx="26" cy="42" r="3" fill="${C_.dark}"/><circle cx="38" cy="42" r="3" fill="${C_.dark}"/>
+  ${[22,28,34,40].map(x=>`<circle cx="${x+1}" cy="35" r="1.4" fill="#fff"/>`).join('')}`,
+ /* 영어·프랑스어 포장지 */
+ `<rect x="12" y="6" width="40" height="52" rx="3" fill="#fff" stroke="${C_.dark}" stroke-width="1.5"/><rect x="12" y="6" width="40" height="12" rx="3" fill="${C_.red}"/>
+  <path d="M32 9l1.5 3 3-1-1 3 2 1-3 1 .5 2-3-1.5-3 1.5.5-2-3-1 2-1-1-3 3 1z" fill="#fff"/>
+  <text x="32" y="32" text-anchor="middle" font-size="9" font-weight="900" fill="${C_.dark}" font-family="sans-serif">MILK</text>
+  <line x1="18" y1="37" x2="46" y2="37" stroke="#ccc"/>
+  <text x="32" y="48" text-anchor="middle" font-size="9" font-weight="900" fill="${C_.blue}" font-family="sans-serif">LAIT</text>`
+],
+JPN:[
+ /* 캘리포니아 롤 */
+ `${[[16,30],[40,24],[34,46]].map(([x,y])=>`<circle cx="${x}" cy="${y}" r="13" fill="#fbfaf6" stroke="#ddd8cc"/><circle cx="${x}" cy="${y}" r="8" fill="${C_.dark}"/><circle cx="${x}" cy="${y}" r="6.5" fill="#fbfaf6"/><path d="M${x-4} ${y-1}h5v4h-5z" fill="${C_.leaf}"/><path d="M${x+1} ${y-3}h4v5h-4z" fill="${C_.orange}"/><circle cx="${x-7}" cy="${y-8}" r=".9" fill="#c9a86a"/><circle cx="${x+8}" cy="${y+6}" r=".9" fill="#c9a86a"/><circle cx="${x+9}" cy="${y-5}" r=".9" fill="#2f3138"/>`).join('')}`,
+ /* 티라디토 */
+ `<ellipse cx="32" cy="40" rx="28" ry="14" fill="#eef1f5" stroke="#c8ced8"/>
+  ${[0,1,2,3].map(i=>`<ellipse cx="${18+i*9}" cy="${38+(i%2)*3}" rx="7" ry="4" fill="#f4a6a0" stroke="#e48b84"/>`).join('')}
+  <path d="M44 22a10 10 0 0 1 14 10H44z" fill="${C_.leaf}"/><path d="M46 30a7 7 0 0 1 10 0z" fill="#d7ec9a"/>
+  <path d="M10 26q6-10 12-2q-6 0-12 2z" fill="${C_.red}"/><circle cx="30" cy="34" r="1.2" fill="${C_.red}"/><circle cx="40" cy="42" r="1.2" fill="${C_.red}"/>`,
+ /* 리베르다지: 붉은 등 가로등 */
+ `<rect x="30" y="20" width="4" height="40" fill="${C_.dark}"/><rect x="24" y="56" width="16" height="4" rx="1" fill="${C_.dark}"/>
+  <path d="M14 18H50" stroke="${C_.dark}" stroke-width="3"/>
+  ${[18,32,46].map(x=>`<path d="M${x} 18v4" stroke="${C_.dark}" stroke-width="1.5"/><circle cx="${x}" cy="30" r="7" fill="${C_.red}"/><circle cx="${x}" cy="30" r="3" fill="#fff" opacity=".85"/>`).join('')}
+  <path d="M30 6h4v12h-4z" fill="${C_.dark}"/>`
+],
+KOR:[
+ /* 코리안 타코 */
+ `<path d="M6 48Q6 18 32 18Q58 18 58 48Z" fill="#f2c46b"/><path d="M12 46Q12 26 32 26Q52 26 52 46Z" fill="#7a4a25"/>
+  ${[[20,30],[28,26],[38,27],[46,32]].map(([x,y])=>`<path d="M${x-4} ${y+2}q4-8 8 0z" fill="${C_.red}"/>`).join('')}
+  ${[[24,28],[34,24],[42,29]].map(([x,y])=>`<rect x="${x}" y="${y}" width="5" height="2" fill="${C_.leaf}" transform="rotate(-20 ${x} ${y})"/>`).join('')}
+  <circle cx="18" cy="36" r="1.5" fill="#fff"/><circle cx="40" cy="38" r="1.5" fill="#fff"/>`,
+ /* 코리아타운: 한글·스페인어 간판 */
+ `<rect x="30" y="6" width="4" height="54" fill="${C_.dark}"/>
+  <rect x="6" y="10" width="52" height="18" rx="3" fill="${C_.blue}"/><text x="32" y="23" text-anchor="middle" font-size="11" font-weight="900" fill="#fff" font-family="sans-serif">한식당</text>
+  <rect x="6" y="34" width="52" height="18" rx="3" fill="${C_.red}"/><text x="32" y="47" text-anchor="middle" font-size="10" font-weight="900" fill="#fff" font-family="sans-serif">TAQUERÍA</text>`
+]};
+function icon(code,i,size=64){const s=(ICONS[code]||[])[i];return s?`<svg class="ill" viewBox="0 0 64 64" width="${size}" height="${size}" aria-hidden="true">${s}</svg>`:''}
+
+/* ───────────── 국기 (단순화, 60×40) ───────────── */
+function star(cx,cy,r,fill,rot=-90){let d='';for(let i=0;i<10;i++){const a=(rot+i*36)*Math.PI/180,rr=i%2?r*.4:r;d+=(i?'L':'M')+(cx+Math.cos(a)*rr).toFixed(2)+','+(cy+Math.sin(a)*rr).toFixed(2)}return `<path d="${d}Z" fill="${fill}"/>`}
+function trigram(cx,cy,ang,pat){ // pat: 3자리, 1=막대, 0=끊긴 막대
+  let s=`<g transform="rotate(${ang} ${cx} ${cy})">`;
+  pat.split('').forEach((b,i)=>{const y=cy-4+i*3.2;s+=b==='1'?`<rect x="${cx-4.5}" y="${y}" width="9" height="2" fill="#000"/>`:`<rect x="${cx-4.5}" y="${y}" width="4" height="2" fill="#000"/><rect x="${cx+.5}" y="${y}" width="4" height="2" fill="#000"/>`});
+  return s+'</g>';
+}
+const FLAGS={
+ DOM:`<rect width="60" height="40" fill="#fff"/><rect width="25" height="16" fill="#002d62"/><rect x="35" width="25" height="16" fill="#ce1126"/><rect y="24" width="25" height="16" fill="#ce1126"/><rect x="35" y="24" width="25" height="16" fill="#002d62"/><circle cx="30" cy="20" r="3" fill="#3f8f4f" opacity=".8"/>`,
+ VEN:`<rect width="60" height="40" fill="#cf142b"/><rect width="60" height="26.7" fill="#00247d"/><rect width="60" height="13.3" fill="#ffcc00"/>${Array.from({length:8},(_,i)=>{const a=(200+i*20)*Math.PI/180;return star(30+Math.cos(a)*9,24+Math.sin(a)*9,1.5,'#fff')}).join('')}`,
+ CUB:`<rect width="60" height="40" fill="#002a8f"/><rect y="8" width="60" height="8" fill="#fff"/><rect y="24" width="60" height="8" fill="#fff"/><path d="M0 0L30 20L0 40Z" fill="#cf142b"/>${star(10,20,5,'#fff')}`,
+ PRI:`<rect width="60" height="40" fill="#ed0000"/><rect y="8" width="60" height="8" fill="#fff"/><rect y="24" width="60" height="8" fill="#fff"/><path d="M0 0L30 20L0 40Z" fill="#0050f0"/>${star(10,20,5,'#fff')}`,
+ MEX:`<rect width="20" height="40" fill="#006847"/><rect x="20" width="20" height="40" fill="#fff"/><rect x="40" width="20" height="40" fill="#ce1126"/><ellipse cx="30" cy="20" rx="5" ry="6" fill="#8c5a2b"/><path d="M25 25q5 4 10 0" stroke="#3f8f4f" stroke-width="1.5" fill="none"/>`,
+ CAN:`<rect width="60" height="40" fill="#fff"/><rect width="15" height="40" fill="#d80621"/><rect x="45" width="15" height="40" fill="#d80621"/><path d="M30 6l2.2 4.4 2.6-1.2-1 6.2 3.8-4 .8 2.2 3.6-.8-1.2 4 1.8 1-6.4 5.4.6 2.2-6.2-.8.2 6.4h-1.6l.2-6.4-6.2.8.6-2.2-6.4-5.4 1.8-1-1.2-4 3.6.8.8-2.2 3.8 4-1-6.2 2.6 1.2z" fill="#d80621"/>`,
+ JPN:`<rect width="60" height="40" fill="#fff"/><circle cx="30" cy="20" r="12" fill="#bc002d"/>`,
+ KOR:`<rect width="60" height="40" fill="#fff"/><g transform="rotate(33.7 30 20)"><path d="M20 20a10 10 0 0 1 20 0z" fill="#cd2e3a"/><path d="M20 20a10 10 0 0 0 20 0z" fill="#0047a0"/><circle cx="25" cy="20" r="5" fill="#cd2e3a"/><circle cx="35" cy="20" r="5" fill="#0047a0"/></g>${trigram(12,8,-56.3,'111')}${trigram(48,32,-56.3,'000')}${trigram(48,8,56.3,'010')}${trigram(12,32,56.3,'101')}`
+};
+function flag(code,w=60){return `<svg class="flag" viewBox="0 0 60 40" width="${w}" height="${w*2/3}" aria-hidden="true">${FLAGS[code]}</svg>`}
+
+/* ───────────── 게임 카드: 단어 + 감이 오는 힌트 (r = 레시피 번호) ───────────── */
+const CLUES={
+ DOM:[{t:'메렝게',h:'아이티와 한 섬을 나눠 쓰는 나라의 춤 음악',r:0},{t:'산코초',h:'아이티 옆 나라의 잔치 스튜',r:2},{t:'해먹·바비큐라는 말',h:'아이티 옆 나라 원주민(타이노)의 말',r:1},{t:'외국인 MLB 선수 1위',h:'아이티와 한 섬을 나눠 쓰는 나라'}],
+ VEN:[{t:'아레파',h:'남아메리카 북쪽 석유 강국의 옥수수빵',r:0},{t:'아야카',h:'남아메리카 북쪽 석유 강국의 크리스마스 음식',r:1},{t:'호로포',h:'남아메리카 북쪽 평원의 하프 음악',r:2},{t:'석유 회사와 야구',h:'카리브해에 맞닿은 남아메리카 석유 강국'}],
+ CUB:[{t:'쿠바노 샌드위치',h:'이름에 나라 이름이 숨어 있어요',r:2},{t:'손(son) 음악',h:'카리브해에서 가장 큰 섬나라의 음악',r:0},{t:'살사',h:'가장 큰 카리브해 섬나라의 음악이 뉴욕에서 자랐어요',r:1},{t:'투우 대신 야구',h:'미국 플로리다 바로 남쪽 섬나라'}],
+ PRI:[{t:'레게톤',h:'미국 시민권을 가진 카리브해 섬의 음악',r:0},{t:'스팽글리시',h:'스페인어와 영어를 섞어 쓰는 미국령 섬',r:1},{t:'모퐁고',h:'미국령 카리브해 섬의 바나나 요리',r:2},{t:'미국 시민인 섬 주민',h:'1898년 미국 땅이 된 카리브해 섬'}],
+ MEX:[{t:'나초',h:'미국과 국경을 맞댄 남쪽 이웃의 음식',r:0},{t:'망자의 날',h:'영화 〈코코〉 속 미국 남쪽 이웃 나라의 축제',r:2},{t:'과달루페 성모',h:'아스테카 문명이 있던 나라',r:1},{t:'텍스멕스',h:'미국 텍사스 + 그 남쪽 이웃 나라',r:0}],
+ CAN:[{t:'문화 모자이크',h:'미국 북쪽, 단풍잎 국기의 나라',r:0},{t:'MILK / LAIT 포장지',h:'영어·프랑스어를 함께 쓰는 미국 북쪽 나라',r:2},{t:'토론토 카리브 카니발',h:'미국 북쪽 나라의 가장 큰 도시',r:1},{t:'토론토 블루제이스',h:'MLB에서 유일하게 미국 밖에 있는 구단'}],
+ JPN:[{t:'캘리포니아 롤',h:'초밥의 나라 음식이 미국에서 변신',r:0},{t:'닛케이 요리',h:'페루로 이주한 초밥의 나라 사람들',r:1},{t:'리베르다지 거리',h:'브라질로 이주한 초밥의 나라 사람들',r:2},{t:'1872년 야구 전래',h:'미국인 교사가 도쿄에서 가르쳤어요'}],
+ KOR:[{t:'코리안 타코',h:'불고기 + 멕시코 타코',r:0},{t:'LA 코리아타운',h:'한글 간판이 걸린 LA 동네',r:1},{t:'1905년 YMCA 야구',h:'선교사 질레트가 서울에서 가르쳤어요'}]
+};
+
+const ORDER=['DOM','VEN','CUB','PRI','MEX','CAN','JPN','KOR'];
+const CITY={NY:'뉴욕',MIA:'마이애미',LA:'로스앤젤레스',USA:'미국',TOR:'토론토',HOU:'휴스턴',CUB:'쿠바'};
+
+/* ───────────── SVG 유틸 ───────────── */
+const NS='http://www.w3.org/2000/svg';
+const $=id=>document.getElementById(id);
+function el(t,a={},parent){const e=document.createElementNS(NS,t);for(const k in a)e.setAttribute(k,a[k]);if(parent)parent.append(e);return e}
+const svg=$('map'), wrap=$('mapwrap'), panel=$('panel'), tip=$('tip');
+const L={bg:el('g',{},svg), tg:el('g',{},svg), deco:el('g',{},svg), routes:el('g',{},svg), inset:el('g',{},svg), mk:el('g',{},svg), fx:el('g',{},svg)};
+const groups={};   // code -> [g...]
+function regGroup(code,g){(groups[code]=groups[code]||[]).push(g)}
+
+/* 배경 나라 */
+for(const [code,d] of Object.entries(GEO.world)){
+  if(COUNTRIES[code]) continue;
+  const p=el('path',{d,class:'bg bgc'+(code==='USA'?' usa':''),'fill-rule':'evenodd'},L.bg);
+  p.addEventListener('pointerdown',e=>onClick(code,e));
+  hoverTip(p,code);
+}
+const usaLbl=el('text',{class:'usalbl',x:GEO.pts.USA[0]-6,y:GEO.pts.USA[1]-6},L.deco); usaLbl.textContent='미국 · MLB';
+/* 대상 나라 */
+for(const code of ORDER){
+  const g=el('g',{class:'tgroup','data-c':code},L.tg);
+  el('path',{d:GEO.world[code],class:'tg','fill-rule':'evenodd'},g);
+  regGroup(code,g); bindTarget(g,code);
+}
+/* 카리브해 확대 지도 */
+const [bx,by,bw,bh]=GEO.box, [[cx0,cy0],[cx1,cy1]]=GEO.cbox;
+el('rect',{class:'cbox',x:cx0,y:cy0,width:cx1-cx0,height:cy1-cy0},L.deco);
+el('line',{class:'leader',x1:cx0,y1:cy1,x2:bx+bw,y2:by},L.deco);
+el('rect',{class:'inset-bg',x:bx,y:by,width:bw,height:bh,rx:3},L.inset);
+for(const [code,d] of Object.entries(GEO.inset)){
+  if(COUNTRIES[code]){
+    const g=el('g',{class:'tgroup','data-c':code},L.inset);
+    el('path',{d,class:'tg'},g); regGroup(code,g); bindTarget(g,code);
+  }else{
+    const p=el('path',{d,class:'bg bgc'+(code==='USA'?' usa':'')},L.inset);
+    p.addEventListener('pointerdown',e=>onClick(code,e)); hoverTip(p,code);
+  }
+}
+const it=el('text',{class:'inset-title',x:bx+5,y:by+bh-5},L.inset); it.textContent='카리브해 확대';
+/* 마커 */
+const rOf=n=>3+Math.sqrt(n)*1.25;
+for(const code of ORDER){
+  const c=COUNTRIES[code], [x,y]=c.inset?GEO.ipts[code]:GEO.pts[code];
+  const g=el('g',{class:'tgroup','data-c':code},L.mk);
+  el('circle',{class:'marker',cx:x,cy:y,r:rOf(c.n)},g);
+  const r=rOf(c.n), side={KOR:'end',JPN:'start',PRI:'start'}[code];
+  const lx=side==='end'?x-r-3:side==='start'?x+r+3:x, ly=side?y-1:y+r+9;
+  const t=el('text',{class:'mlabel',x:lx,y:ly,style:side?`text-anchor:${side}`:''},g); t.textContent=c.name.replace('공화국','');
+  const s=el('tspan',{class:'mcount',x:lx,dy:9},t); s.textContent=c.nText;
+  regGroup(code,g); bindTarget(g,code);
+}
+function bindTarget(g,code){
+  g.addEventListener('pointerdown',e=>{e.stopPropagation();onClick(code,e)});
+  hoverTip(g,code);
+}
+function nameOf(code){return COUNTRIES[code]?COUNTRIES[code].name:(NAMES[code]||'')}
+function hoverTip(node,code){
+  node.addEventListener('pointermove',e=>{
+    if(mode==='game' && !opt.hints) return;
+    const b=wrap.getBoundingClientRect(); tip.hidden=false; tip.textContent=nameOf(code);
+    tip.style.left=(e.clientX-b.left)+'px'; tip.style.top=(e.clientY-b.top)+'px';
+  });
+  node.addEventListener('pointerleave',()=>tip.hidden=true);
+}
+
+/* 이동 경로 화살표 */
+const defs=el('defs',{},svg);
+[['ah-spread','var(--navy)'],['ah-move','var(--stitch)']].forEach(([id,c])=>{
+  const m=el('marker',{id,viewBox:'0 0 10 10',refX:8,refY:5,markerWidth:5,markerHeight:5,orient:'auto-start-reverse'},defs);
+  el('path',{d:'M0,0L10,5L0,10Z',fill:c},m);
+});
+function pt(k){return GEO.pts[k]}
+function arc(a,b,cls,label,bend){
+  const [x1,y1]=a,[x2,y2]=b, mx=(x1+x2)/2, my=(y1+y2)/2, dx=x2-x1, dy=y2-y1, len=Math.hypot(dx,dy)||1;
+  const k=bend*Math.min(80,len*.35), qx=mx-dy/len*k, qy=my+dx/len*k;
+  const p=el('path',{class:'route '+cls,d:`M${x1},${y1}Q${qx},${qy} ${x2},${y2}`,'marker-end':`url(#ah-${cls})`},L.routes);
+  const len2=p.getTotalLength(); p.style.strokeDasharray=cls==='move'?`${len2}`:'5 4';
+  if(cls==='move'){p.style.strokeDashoffset=len2;p.animate([{strokeDashoffset:len2},{strokeDashoffset:0}],{duration:700,fill:'forwards',easing:'ease-out'})}
+  const t=el('text',{class:'route-lbl',x:(x1+2*qx+x2)/4,y:(y1+2*qy+y2)/4-4,'text-anchor':'middle',fill:cls==='move'?'var(--stitch)':'var(--navy)'},L.routes);
+  t.textContent=label;
+}
+function drawRoutes(code){
+  L.routes.innerHTML='';
+  const c=COUNTRIES[code]; if(!c) return;
+  const here=pt(code);
+  if(c.from){ arc(pt(c.from),here,'spread','야구 전래',code==='DOM'||code==='PRI'?-1:1) }
+  if(c.to){
+    const dest=pt(c.to); el('circle',{class:'city',cx:dest[0],cy:dest[1],r:2.6},L.routes);
+    const t=el('text',{class:'route-lbl',x:dest[0]+5,y:dest[1]-4,fill:'var(--navy)'},L.routes); t.textContent=CITY[c.to];
+    arc(here,dest,'move','선수 이동',code==='JPN'||code==='KOR'?-1:1);
+  }
+}
+
+/* ───────────── 상태 ───────────── */
+let mode='explore', selected=null;
+const seen=new Set();
+function setSelected(code){
+  selected=code;
+  document.querySelectorAll('.tgroup').forEach(g=>g.classList.toggle('on',g.dataset.c===code));
+  drawRoutes(code);
+}
+
+/* ───────────── 탐험 모드 패널 ───────────── */
+const maxN=Math.max(...ORDER.map(c=>COUNTRIES[c].n));
+function originsLegend(){
+  return '<div class="origins">'+['원주민','유럽','아프리카','아시아','미국·캐나다','중남미·카리브'].map(o=>`<span class="o-${o}">${o}</span>`).join('')+'</div>';
+}
+function mixHTML(r){
+  return `<div class="mix">${r.mix.map((m,i)=>(i?'<span class="op">+</span>':'')+`<span class="ing o-${m[0]}"><small>${m[0]}</small>${m[1]}</span>`).join('')}<span class="op">=</span><span class="res">${r.res}</span></div><p class="note" style="font-size:13px;color:var(--ink)">${r.d}</p>`;
+}
+function recipeInner(code,i){const r=COUNTRIES[code].culture[i];return `<div class="rgrid">${icon(code,i,64)}<div>${mixHTML(r)}</div></div>`}
+function recipeHTML(code,i){return `<div class="recipe">${recipeInner(code,i)}</div>`}
+function renderHome(){
+  setSelected(null);
+  panel.innerHTML=`<div class="pad">
+    <div class="eyebrow">탐험하기${player.name?' · '+esc(player.name)+' 학생, 환영해요':''}</div>
+    <h2>메이저리그 선수들은 어디에서 왔을까?</h2>
+    <p>MLB 선수의 약 4분의 1은 미국 밖에서 태어났어요. 지도의 빨간 원을 눌러 각 나라에서 <b>야구가 어떻게 전해졌는지</b>, 사람들이 <b>어디로 이동했는지</b>, 그 과정에서 <b>어떤 문화가 섞였는지</b> 살펴보세요.</p>
+    <div class="q">생각 열기 <b>"왜 이들은 아메리카로 이동해 왔으며, 우리 주변의 문화는 어떻게 섞이게 되었을까?"</b></div>
+    <div class="clist">${ORDER.map(c=>{const o=COUNTRIES[c];return `<button class="crow${seen.has(c)?' seen':''}" data-c="${c}"><span class="nm">${flag(c,22)} ${o.name}</span><span class="bar" style="width:${Math.max(4,o.n/maxN*100)}%"></span><span class="num">${o.nText}</span></button>`}).join('')}</div>
+    <p class="note">선수 수는 최근 MLB 개막전 로스터 기준의 대략적인 규모이며 해마다 달라요. 푸에르토리코는 미국 자치령이지만 MLB 통계에서는 따로 구분해요. 대한민국은 보너스로 넣었어요.</p>
+    <p class="note">살펴본 나라 <b>${seen.size}</b> / ${ORDER.length}</p>
+  </div>`;
+  panel.querySelectorAll('.crow').forEach(b=>b.onclick=()=>renderCountry(b.dataset.c));
+}
+function renderCountry(code){
+  const c=COUNTRIES[code]; seen.add(code); setSelected(code);
+  panel.innerHTML=`<div class="pad">
+    <button class="back" id="backBtn">← 전체 나라 보기</button>
+    <div class="eyebrow">${c.bonus?'보너스 · 우리나라와의 연결':'MLB 선수 '+c.nText}</div>
+    <div class="ctitle">${flag(code,64)}<h2>${c.name}</h2></div>
+    <div class="gallery">${c.culture.map((r,i)=>`<figure>${icon(code,i,72)}<figcaption>${r.res}</figcaption></figure>`).join('')}</div>
+    <div class="section"><h3>대표 선수</h3><div class="chips">${c.players.map(p=>`<span class="chip">${p}</span>`).join('')}</div><p class="note" style="margin-top:8px">${c.pnote}</p></div>
+    <div class="section"><div class="kv">
+      <i>⚾</i><span><b>야구가 전해진 길</b><br>${c.spread}</span>
+      <i>●</i><span><b>사람들</b><br>${c.people}</span>
+      <i>→</i><span><b>이동</b><br>${c.move}</span>
+    </div></div>
+    <h3 style="margin:4px 0 0">문화 혼종 레시피</h3>
+    ${originsLegend()}
+    ${c.culture.map((_,i)=>recipeHTML(code,i)).join('')}
+    <div class="q">모둠 질문 <b>${c.think}</b></div>
+  </div>`;
+  $('backBtn').onclick=renderHome;
+  panel.scrollTop=0;
+}
+
+/* ───────────── 게임 ───────────── */
+const DIFF={easy:{fall:24,gap:5.5,lives:5,max:1,help:.55},normal:{fall:18,gap:4.5,lives:5,max:2,help:.75},hard:{fall:13,gap:3.4,lives:3,max:2,help:0}};
+const ROUND=16;
+let opt={diff:'easy',hints:true}, G=null, lastT=0;
+function buildClues(){
+  // 나라마다 2장씩 고르게
+  const pick=[];
+  for(const code of ORDER){ shuffle([...CLUES[code]]).slice(0,2).forEach(x=>pick.push({...x,c:code,k:x.r!=null?'문화':'역사'})) }
+  return shuffle(pick);
+}
+function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.random()*(i+1)|0;[a[i],a[j]]=[a[j],a[i]]}return a}
+function renderGamePanel(){
+  panel.innerHTML=`<div class="pad">
+    <div class="eyebrow">게임하기</div>
+    <h2>카드 속 나라를 찾아라</h2>
+    <p class="note">${player.name?esc(playerLabel())+' 학생, 화이팅!':''}</p>
+    <div class="hud">
+      <div><b id="gScore">0</b><span>점수</span></div>
+      <div><b id="gCombo">0</b><span>연속</span></div>
+      <div><b id="gLives">-</b><span>목숨</span></div>
+      <div><b id="gLeft">${ROUND}</b><span>남은 카드</span></div>
+    </div>
+    <div class="progress"><i id="gProg"></i></div>
+    <h3 style="margin:4px 0 0">모은 문화 혼종 레시피</h3>
+    <div class="log" id="gLog"><p class="note empty">문화 카드를 맞히면 여기에 레시피가 쌓여요.</p></div>
+  </div>`;
+}
+function hud(){
+  if(!G) return;
+  $('gScore').textContent=G.score; $('gCombo').textContent=G.combo;
+  $('gLives').textContent=G.lives; $('gLeft').textContent=G.deck.length+G.cards.length;
+  $('gProg').style.width=((ROUND-G.deck.length-G.cards.length)/ROUND*100)+'%';
+}
+function startGame(){
+  $('fall').innerHTML=''; L.fx.innerHTML=''; L.routes.innerHTML=''; setSelected(null);
+  wrap.classList.toggle('hints',opt.hints);
+  G={score:0,combo:0,lives:DIFF[opt.diff].lives,deck:buildClues(),cards:[],correct:0,wrong:0,missed:0,spawnIn:.5,running:true,missedList:[]};
+  renderGamePanel(); hud();
+  $('startOv').hidden=true; $('endOv').hidden=true;
+  lastT=performance.now();
+}
+function spawn(){
+  const clue=G.deck.pop(); if(!clue) return;
+  const d=document.createElement('div'); d.className='card';
+  d.innerHTML=(clue.r!=null?icon(clue.c,clue.r,40):'<svg class="ill" viewBox="0 0 64 64" width="40" height="40"><circle cx="32" cy="32" r="22" fill="#fff" stroke="#c8c2b6" stroke-width="2"/><path d="M18 14c8 10 8 26 0 36M46 14c-8 10-8 26 0 36" fill="none" stroke="#d1373f" stroke-width="2.5" stroke-dasharray="3 2.5"/></svg>')+`<div><span class="k ${clue.k}">${clue.k}</span><div class="t">${clue.t}</div><div class="h">${clue.h}</div></div>`;
+  $('fall').append(d);
+  const W=wrap.clientWidth, w=d.offsetWidth, h=d.offsetHeight;
+  let x=0; for(let k=0;k<12;k++){x=8+Math.random()*Math.max(1,W-w-16); if(G.cards.every(o=>o.y>h*1.6||Math.abs(o.x-x)>w+8)) break}
+  const o={clue,el:d,x,y:-h,h}; place(o); G.cards.push(o);
+}
+const place=o=>o.el.style.transform=`translate(${o.x}px,${o.y}px)`;
+function loop(t){
+  requestAnimationFrame(loop);
+  const dt=Math.min(.05,(t-lastT)/1000); lastT=t;
+  if(!G||!G.running||mode!=='game') return;
+  const H=wrap.clientHeight, v=H/DIFF[opt.diff].fall;
+  for(const o of [...G.cards]){
+    o.y+=v*dt; place(o); o.el.classList.toggle('danger',o.y+o.h>H*.8);
+    const hp=DIFF[opt.diff].help; if(hp && !o.helped && o.y+o.h>H*hp){o.helped=true; (groups[o.clue.c]||[]).forEach(g=>g.classList.add('help'))}
+    if(o.y+o.h>=H) miss(o);
+  }
+  G.spawnIn-=dt;
+  if(G.spawnIn<=0 && G.deck.length){
+    if(G.cards.length<DIFF[opt.diff].max) spawn();
+    G.spawnIn=DIFF[opt.diff].gap*(.8+Math.random()*.4);
+  }
+  if(!G.cards.length && G.spawnIn>.5 && G.deck.length) G.spawnIn=.5;
+  if(!G.cards.length && !G.deck.length) endGame();
+}
+function onClick(code,e){
+  if(mode==='explore'){ if(COUNTRIES[code]) renderCountry(code); return }
+  if(!G||!G.running) return;
+  const hit=G.cards.filter(o=>o.clue.c===code).sort((a,b)=>b.y-a.y)[0];
+  if(hit){
+    G.combo++; G.correct++;
+    const pts=10+Math.round(Math.max(0,1-(hit.y+hit.h)/wrap.clientHeight)*10)+Math.min(G.combo-1,10)*2;
+    G.score+=pts; removeCard(hit,true); flash(code,'ok'); floatText(e,'+'+pts,'var(--good)');
+    logAnswer(hit.clue);
+  }else{
+    G.wrong++; G.combo=0; G.score=Math.max(0,G.score-5);
+    flash(code,'no',true); floatText(e,'-5','var(--bad)');
+  }
+  hud();
+}
+function miss(o){
+  G.missed++; G.combo=0; G.missedList.push(o.clue); removeCard(o,false);
+  flash(o.clue.c,'miss',true,1900); G.lives--; hud();
+  logAnswer(o.clue,true);
+  if(G.lives<=0) endGame();
+}
+function removeCard(o,good){
+  G.cards=G.cards.filter(x=>x!==o);
+  if(o.helped && !G.cards.some(x=>x.helped&&x.clue.c===o.clue.c)) (groups[o.clue.c]||[]).forEach(g=>g.classList.remove('help'));
+  if(good){o.el.style.setProperty('--t',o.el.style.transform);o.el.style.borderColor='var(--good)';o.el.classList.add('pop');setTimeout(()=>o.el.remove(),350)}
+  else o.el.remove();
+}
+function logAnswer(clue,missed){
+  const log=$('gLog'); if(!log) return;
+  const em=log.querySelector('p.empty'); if(em) em.remove();
+  const c=COUNTRIES[clue.c];
+  const box=document.createElement('div'); box.className='recipe';
+  const head=`<div class="lg-head"><span class="who">${flag(clue.c,24)} ${c.name}</span><span class="where" style="${missed?'color:var(--warn)':''}">${missed?'놓친 카드':'정답'}</span></div>`;
+  box.innerHTML=head+(clue.r!=null?recipeInner(clue.c,clue.r):`<p class="note" style="color:var(--ink);font-size:13px"><b>${clue.t}</b> · ${c.spread}</p>`);
+  log.prepend(box);
+}
+const timers={};
+function flash(code,cls,showName,ms=750){
+  const gs=groups[code]||[];
+  gs.forEach(g=>{g.classList.remove('ok','no','miss');void g.getBBox();g.classList.add(cls)});
+  clearTimeout(timers[code]);
+  let lbl=null;
+  const [x,y]=COUNTRIES[code]?(COUNTRIES[code].inset?GEO.ipts[code]:GEO.pts[code]):null||[0,0];
+  if(showName){
+    const p=COUNTRIES[code]?[x,y-14]:null;
+    if(p){lbl=el('text',{class:'flashlbl',x:p[0],y:p[1],fill:cls==='no'?'var(--bad)':'#9a5a00'},L.fx);lbl.textContent=(cls==='no'?'여긴 ':'')+nameOf(code)}
+  }
+  timers[code]=setTimeout(()=>{gs.forEach(g=>g.classList.remove(cls));lbl&&lbl.remove()},ms);
+}
+function floatText(e,txt,color){
+  const b=wrap.getBoundingClientRect(), f=document.createElement('div');
+  f.className='float'; f.style.left=(e.clientX-b.left)+'px'; f.style.top=(e.clientY-b.top)+'px'; f.style.color=color; f.textContent=txt;
+  // 배경 나라를 잘못 누르면 그 나라 이름도 함께
+  wrap.append(f); setTimeout(()=>f.remove(),900);
+}
+function endGame(){
+  if(!G.running) return;
+  G.running=false; G.cards.forEach(o=>o.el.remove()); G.cards=[];
+  const total=G.correct+G.wrong+G.missed;
+  $('rScore').textContent=G.score; $('rCorrect').textContent=G.correct+'/'+ROUND;
+  $('rAcc').textContent=total?Math.round(G.correct/total*100)+'%':'-';
+  $('endTitle').textContent=G.lives<=0?'경기 종료!':'16장 완주!';
+  const miss=[...new Set(G.missedList.map(c=>COUNTRIES[c.c].name))];
+  $('rMsg').textContent=miss.length?`다시 살펴볼 나라: ${miss.join(', ')}. 탐험하기에서 레시피를 확인해 보세요.`:'놓친 카드 없이 완벽해요! 오른쪽 레시피를 모둠 친구와 함께 읽어 보세요.';
+  const now=new Date(), t=now.toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'});
+  $('endWho').textContent=`${playerLabel()} 학생 · ${now.toLocaleDateString('ko-KR')} ${t}`;
+  const rec={n:playerLabel(),s:G.score,c:G.correct,d:{easy:'쉬움',normal:'보통',hard:'어려움'}[opt.diff],id:now.getTime()};
+  const b=loadBoard(); b.push(rec); b.sort((x,y)=>y.s-x.s); saveBoard(b);
+  const top=b.slice(0,5);
+  $('board').innerHTML=`<h4>이 컴퓨터 기록 TOP 5</h4><ol>${top.map(r=>`<li class="${r.id===rec.id?'me':''}">${esc(r.n)} — ${r.s}점 (${r.c}/${ROUND}, ${r.d})</li>`).join('')}</ol>`;
+  $('endOv').hidden=false;
+}
+function esc(t){return String(t).replace(/[&<>"]/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[ch]))}
+
+/* 배경 나라 클릭 (게임 중 오답 처리) */
+const _onClick=onClick;
+onClick=function(code,e){
+  if(mode==='game' && G && G.running && !COUNTRIES[code]){
+    G.wrong++; G.combo=0; G.score=Math.max(0,G.score-5); hud();
+    const b=wrap.getBoundingClientRect(), f=document.createElement('div');
+    f.className='float'; f.style.left=(e.clientX-b.left)+'px'; f.style.top=(e.clientY-b.top)+'px'; f.style.color='var(--bad)';
+    f.style.fontSize='16px'; f.textContent='여긴 '+nameOf(code); wrap.append(f); setTimeout(()=>f.remove(),900);
+    return;
+  }
+  _onClick(code,e);
+};
+
+/* ───────────── 모드 전환 ───────────── */
+function setMode(m){
+  mode=m;
+  $('tabExplore').classList.toggle('on',m==='explore'); $('tabGame').classList.toggle('on',m==='game');
+  wrap.classList.toggle('game',m==='game');
+  $('fall').innerHTML=''; L.fx.innerHTML=''; tip.hidden=true;
+  if(G){G.running=false; G=null}
+  $('endOv').hidden=true;
+  if(m==='explore'){ $('startOv').hidden=true; selected?renderCountry(selected):renderHome() }
+  else { setSelected(null); renderGamePanel(); $('startOv').hidden=false }
+}
+$('tabExplore').onclick=()=>setMode('explore');
+$('tabGame').onclick=()=>setMode('game');
+$('diffSeg').onclick=e=>{const b=e.target.closest('button');if(!b)return;[...$('diffSeg').children].forEach(x=>x.classList.toggle('on',x===b));opt.diff=b.dataset.v};
+$('hintChk').onchange=e=>{opt.hints=e.target.checked};
+$('startBtn').onclick=startGame; $('againBtn').onclick=startGame;
+$('toExplore').onclick=()=>setMode('explore');
+document.addEventListener('visibilitychange',()=>{lastT=performance.now()});
+
+/* ───────────── 입장 · 이름 ───────────── */
+const player={team:'',name:''};
+function playerLabel(){return (player.team?player.team+' · ':'')+player.name}
+const nameIn=$('nameIn'), teamSel=$('teamSel'), enterBtn=$('enterBtn');
+function checkEntry(){enterBtn.disabled=!nameIn.value.trim()}
+nameIn.addEventListener('input',checkEntry);
+$('entryForm').addEventListener('submit',e=>{
+  e.preventDefault();
+  const n=nameIn.value.trim(); if(!n){$('entryMsg').textContent='이름을 먼저 적어 주세요.';nameIn.focus();return}
+  player.name=n; player.team=teamSel.value;
+  $('whoText').textContent=playerLabel()+' 학생'; $('whoChip').hidden=false;
+  $('intro').hidden=true;
+  if(mode==='game' && G && G.running) {}
+  else if(mode==='explore') renderHome();
+});
+$('guideBtn').onclick=()=>{
+  if(G&&G.running) setMode('game');
+  nameIn.value=player.name; teamSel.value=player.team; checkEntry();
+  enterBtn.textContent='계속하기'; $('intro').hidden=false;
+};
+setTimeout(()=>nameIn.focus(),50);
+
+/* 이 컴퓨터에 남는 게임 기록 (같은 컴퓨터를 쓰는 친구들끼리만 보여요) */
+function loadBoard(){try{return JSON.parse(localStorage.getItem('mlb-board')||'[]')}catch(_){return []}}
+function saveBoard(b){try{localStorage.setItem('mlb-board',JSON.stringify(b.slice(0,30)))}catch(_){}}
+
+renderHome();
+requestAnimationFrame(t=>{lastT=t;loop(t)});
+</script>
+</body>
+</html>
